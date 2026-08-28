@@ -158,7 +158,7 @@ describe('Transformers.js region model adapter', () => {
     );
     expect(mock.detectors[0]).toHaveBeenCalledWith(
       '/painting.jpg',
-      ['tree.', 'boat.'],
+      ['tree. boat.'],
       expect.objectContaining({ percentage: true }),
     );
     expect(first.regions).toHaveLength(2);

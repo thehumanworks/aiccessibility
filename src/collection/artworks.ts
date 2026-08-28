@@ -406,6 +406,23 @@ export const artworks = [
     interpreted: [],
     regions: [
       {
+        id: 'hokusai-title-cartouche-signature',
+        label: 'The Japanese title cartouche and signature',
+        description:
+          'The series title and print title fill a narrow rectangular cartouche at the upper left, beside Hokusai’s vertical signature.',
+        bounds: { x: 0.012, y: 0.05, width: 0.085, height: 0.26 },
+        queryAliases: [
+          'Japanese text',
+          'Japanese writing',
+          'Japanese inscription',
+          'title cartouche',
+          'artist signature',
+          'Hokusai signature',
+          'vertical signature',
+          'calligraphy',
+        ],
+      },
+      {
         id: 'hokusai-breaking-wave',
         label: 'The breaking wave',
         description:

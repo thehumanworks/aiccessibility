@@ -113,6 +113,8 @@ export interface ArtworkRegion {
   label: string;
   description: string;
   bounds: RegionBounds;
+  /** Natural-language phrases that can resolve directly to an authored region. */
+  queryAliases?: readonly string[];
   confidence?: number;
   provenance?: 'authored' | 'model-detected';
   model?: RegionModelMetadata;

@@ -458,6 +458,39 @@ describe('WebMCP probe contracts', () => {
     expect(controller.getState().revision).toBeLessThan(20);
   });
 
+  it('prefers a matching authored detail over an unverified model box', async () => {
+    const runner = vi.fn<RegionAnalysisRunner>();
+    const controller = createTestController(runner);
+    controller.navigateToArtwork('hokusai-great-wave');
+
+    const result = (await findTool(
+      createGalleryTools(controller),
+      'zoom_to_artwork_detail',
+    ).execute(
+      { query: 'the Japanese text and signature in the upper-left corner' },
+      executionOptions(),
+    )) as SuccessResult;
+
+    expect(result).toMatchObject({
+      ok: true,
+      action: 'zoom_to_artwork_detail',
+      verification: 'gallery-authored-region',
+      region: {
+        id: 'hokusai-title-cartouche-signature',
+        provenance: 'authored',
+        bounds: { x: 0.012, y: 0.05, width: 0.085, height: 0.26 },
+      },
+      state: {
+        focusedRegion: {
+          id: 'hokusai-title-cartouche-signature',
+          provenance: 'authored',
+        },
+        regionAnalysis: { phase: 'idle', backend: 'authored' },
+      },
+    });
+    expect(runner).not.toHaveBeenCalled();
+  });
+
   it('returns a recoverable not-found result when a natural-language query has no accepted match', async () => {
     const controller = createTestController(async () => ({
       backend: 'webgpu',

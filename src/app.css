@@ -378,8 +378,12 @@
   .artwork-zoom-surface {
     position: relative;
     display: grid;
-    transform: scale(var(--focus-scale, 1));
-    transform-origin: var(--focus-x, 50%) var(--focus-y, 50%);
+    transform: translate(
+        var(--focus-translate-x, 0%),
+        var(--focus-translate-y, 0%)
+      )
+      scale(var(--focus-scale, 1));
+    transform-origin: 50% 50%;
   }
 
   .artwork-zoom-surface > * {

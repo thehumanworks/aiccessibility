@@ -223,7 +223,8 @@ Input:
 
 ### `zoom_to_artwork_detail`
 
-Mutation. Accepts the visitor's natural-language visual target, lazily runs the
+Mutation. Accepts the visitor's natural-language visual target and first resolves
+matching authored detail aliases. When no authored detail matches, it lazily runs the
 browser-local Grounding DINO Tiny detector and SlimSAM refiner, selects the strongest accepted
 match, and stores the result and focused region in one state update. WebGPU is
 preferred for phrase grounding, while the small SlimSAM refiner uses WASM to

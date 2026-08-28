@@ -13,10 +13,11 @@ modes and the supporting explanations.
 
 Ten Site Tools are registered on the top-level document. Alongside collection,
 navigation, speaking-style, and authored-region actions,
-`zoom_to_artwork_detail` accepts a natural-language visual target, runs Grounding DINO Tiny
-and SlimSAM locally only when called, and atomically zooms the shared page to the
-strongest accepted match. The tools drive exactly the same reducer as the
-visible controls, so an agent and a person never diverge into separate state.
+`zoom_to_artwork_detail` accepts a natural-language visual target, runs
+Grounding DINO Tiny and SlimSAM locally only when no matching authored detail
+is available, and atomically zooms the shared page to the grounded region. The
+tools drive exactly the same reducer as the visible controls, so an agent and a
+person never diverge into separate state.
 Live ChatGPT Voice validation is **not** yet complete; see
 [`docs/voice-validation.md`](docs/voice-validation.md) for the current status.
 

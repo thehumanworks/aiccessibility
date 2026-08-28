@@ -515,7 +515,12 @@ export function createTransformersRegionAdapter(
       progress: 0.58,
       backend: loaded.backend,
     });
-    const detections = await loaded.detector(input.imageUrl, detectorLabels, {
+    // The pinned ONNX export has a fixed text batch of one. Grounding DINO is
+    // designed to ground multiple dot-delimited phrases from one caption, so
+    // combine candidate phrases instead of passing one tokenizer batch per
+    // phrase (which fails with `input_ids` Got: N Expected: 1).
+    const detectorCaption = [detectorLabels.join(' ')];
+    const detections = await loaded.detector(input.imageUrl, detectorCaption, {
       threshold: detectionThreshold,
       top_k: Math.min(48, maxRegions * 4),
       percentage: true,

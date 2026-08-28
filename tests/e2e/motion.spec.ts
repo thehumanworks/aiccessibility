@@ -115,6 +115,36 @@ async function installRecorder(page: Page) {
   });
 }
 
+async function installRegionToolHarness(page: Page) {
+  await page.addInitScript(() => {
+    interface HarnessTool {
+      name: string;
+      execute: (
+        input: Record<string, unknown>,
+        options: { signal: AbortSignal },
+      ) => unknown;
+    }
+
+    const tools = new Map<string, HarnessTool>();
+    Object.defineProperty(document, 'modelContext', {
+      configurable: true,
+      value: {
+        registerTool(tool: HarnessTool) {
+          tools.set(tool.name, tool);
+          return Promise.resolve();
+        },
+      },
+    });
+    Object.defineProperty(window, 'callRegionTool', {
+      configurable: true,
+      value: (name: string, input: Record<string, unknown>) =>
+        tools
+          .get(name)!
+          .execute(input, { signal: new AbortController().signal }),
+    });
+  });
+}
+
 test('settings fills the whole viewport on desktop and on mobile', async ({
   page,
 }) => {
@@ -233,33 +263,7 @@ test('reduced motion makes region zoom immediate while preserving focus', async 
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.addInitScript(() => {
-    interface HarnessTool {
-      name: string;
-      execute: (
-        input: Record<string, unknown>,
-        options: { signal: AbortSignal },
-      ) => unknown;
-    }
-
-    const tools = new Map<string, HarnessTool>();
-    Object.defineProperty(document, 'modelContext', {
-      configurable: true,
-      value: {
-        registerTool(tool: HarnessTool) {
-          tools.set(tool.name, tool);
-          return Promise.resolve();
-        },
-      },
-    });
-    Object.defineProperty(window, 'callRegionTool', {
-      configurable: true,
-      value: (name: string, input: Record<string, unknown>) =>
-        tools
-          .get(name)!
-          .execute(input, { signal: new AbortController().signal }),
-    });
-  });
+  await installRegionToolHarness(page);
   await page.goto('/');
 
   const canvas = page.locator('.artwork-canvas');
@@ -282,13 +286,68 @@ test('reduced motion makes region zoom immediate while preserving focus', async 
       Number.parseFloat(getComputedStyle(element).transitionDuration),
     ),
   ).toBeLessThan(0.001);
-  await expect(surface).toHaveCSS(
-    'transform',
-    'matrix(1.35, 0, 0, 1.35, 0, 0)',
-  );
+  const transform = await surface.evaluate((element) => {
+    const matrix = new DOMMatrix(getComputedStyle(element).transform);
+    return {
+      scaleX: matrix.a,
+      scaleY: matrix.d,
+      translateX: matrix.e,
+      translateY: matrix.f,
+    };
+  });
+  expect(transform.scaleX).toBeCloseTo(1.35);
+  expect(transform.scaleY).toBeCloseTo(1.35);
+  expect(transform.translateX).toBeGreaterThan(0);
+  expect(Math.abs(transform.translateY)).toBeGreaterThan(0);
   await expect(page.getByRole('status')).toContainText(
     'Focused on The near winter tree.',
   );
+});
+
+test('edge-authored focus keeps the complete region inside the artwork canvas', async ({
+  page,
+}) => {
+  await installRegionToolHarness(page);
+  await page.goto('/?artwork=hokusai-great-wave');
+
+  await page.evaluate(() =>
+    (
+      window as unknown as {
+        callRegionTool: (name: string, input: unknown) => unknown;
+      }
+    ).callRegionTool('zoom_to_artwork_detail', {
+      query: 'the Japanese text and signature in the upper-left corner',
+    }),
+  );
+
+  const canvas = page.locator('.artwork-canvas');
+  const marker = page.locator(
+    '[data-region-id="hokusai-title-cartouche-signature"]',
+  );
+  await expect(canvas).toHaveAttribute(
+    'data-focused-region',
+    'hokusai-title-cartouche-signature',
+  );
+  await expect(marker).toBeVisible();
+
+  await expect
+    .poll(async () => {
+      const [canvasBox, markerBox] = await Promise.all([
+        canvas.boundingBox(),
+        marker.boundingBox(),
+      ]);
+      if (!canvasBox || !markerBox) return false;
+      const tolerance = 1;
+      return (
+        markerBox.x >= canvasBox.x - tolerance &&
+        markerBox.y >= canvasBox.y - tolerance &&
+        markerBox.x + markerBox.width <=
+          canvasBox.x + canvasBox.width + tolerance &&
+        markerBox.y + markerBox.height <=
+          canvasBox.y + canvasBox.height + tolerance
+      );
+    })
+    .toBe(true);
 });
 
 test('the Speaking style pill travels with a Motion layout animation', async ({

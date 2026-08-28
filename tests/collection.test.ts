@@ -60,7 +60,7 @@ describe('collection integrity', () => {
     expect(new Set(regionIds).size).toBe(regionIds.length);
 
     for (const artwork of artworks) {
-      expect(artwork.regions).toHaveLength(3);
+      expect(artwork.regions.length).toBeGreaterThanOrEqual(3);
 
       for (const region of artwork.regions) {
         const { x, y, width, height } = region.bounds;
@@ -75,6 +75,15 @@ describe('collection integrity', () => {
         expect(getRegion(artwork.id, region.id)).toEqual(region);
       }
     }
+
+    expect(
+      getRegion(
+        'hokusai-great-wave',
+        'hokusai-title-cartouche-signature',
+      ),
+    ).toMatchObject({
+      queryAliases: expect.arrayContaining(['Japanese text', 'title cartouche']),
+    });
   });
 
   it('grounds observed statements and resolves every cited source', () => {

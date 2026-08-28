@@ -1,5 +1,6 @@
 import { getArtwork, listArtworks } from '../collection/repository';
 import { pushArtworkToHistory } from './history';
+import { findAuthoredRegionForQuery } from './regions';
 import type { GalleryAction } from './reducer';
 import type { GalleryState } from './types';
 import type { ArtworkRegion } from './types';
@@ -201,8 +202,19 @@ export function createGalleryController({
     clearRegionFocus: () => applyAction({ type: 'clear-focus' }),
     analyzeArtworkRegions: (options = {}) =>
       runArtworkRegionAnalysis(options, false),
-    zoomToArtworkDetail: (query, options = {}) =>
-      runArtworkRegionAnalysis(
+    zoomToArtworkDetail: async (query, options = {}) => {
+      const authoredMatch = findAuthoredRegionForQuery(
+        getState().artworkId,
+        query,
+      );
+      if (authoredMatch) {
+        return applyAction({
+          type: 'focus-region',
+          regionId: authoredMatch.id,
+        });
+      }
+
+      return runArtworkRegionAnalysis(
         {
           labels: [query],
           threshold: 0.12,
@@ -210,6 +222,7 @@ export function createGalleryController({
           ...(options.signal ? { signal: options.signal } : {}),
         },
         true,
-      ),
+      );
+    },
   };
 }

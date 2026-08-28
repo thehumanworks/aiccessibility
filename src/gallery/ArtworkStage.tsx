@@ -15,6 +15,16 @@ interface ArtworkStageProps {
   direction: number;
 }
 
+function focusTranslation(center: number, scale: number): number {
+  const viewportSize = 1 / scale;
+  const viewportStart = Math.min(
+    Math.max(center - viewportSize / 2, 0),
+    1 - viewportSize,
+  );
+  const viewportCenter = viewportStart + viewportSize / 2;
+  return (0.5 - viewportCenter) * scale * 100;
+}
+
 export function ArtworkStage({
   artwork,
   positionLabel,
@@ -33,10 +43,16 @@ export function ArtworkStage({
   const zoomScale = focusedRegion
     ? Math.min(2.6, Math.max(1.35, 0.82 / Math.max(focusedRegion.bounds.width, focusedRegion.bounds.height)))
     : 1;
+  const focusCenter = focusedRegion
+    ? {
+        x: focusedRegion.bounds.x + focusedRegion.bounds.width / 2,
+        y: focusedRegion.bounds.y + focusedRegion.bounds.height / 2,
+      }
+    : undefined;
   const zoomStyle = focusedRegion
     ? ({
-        '--focus-x': `${(focusedRegion.bounds.x + focusedRegion.bounds.width / 2) * 100}%`,
-        '--focus-y': `${(focusedRegion.bounds.y + focusedRegion.bounds.height / 2) * 100}%`,
+        '--focus-translate-x': `${focusTranslation(focusCenter!.x, zoomScale)}%`,
+        '--focus-translate-y': `${focusTranslation(focusCenter!.y, zoomScale)}%`,
         '--focus-scale': String(zoomScale),
       } as CSSProperties)
     : undefined;

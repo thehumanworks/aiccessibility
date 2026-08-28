@@ -329,7 +329,7 @@ export function createGalleryTools(
       name: 'zoom_to_artwork_detail',
       title: 'Find and zoom to an artwork detail',
       description:
-        'Use this whenever the visitor asks to find, locate, inspect, look closely at, or zoom into a specific visible subject or section of the current painting. Pass the visitor’s natural-language target. This runs browser-local Grounding DINO Tiny detection on demand with WebGPU when available, refines the best matches with SlimSAM, and immediately zooms the shared page to the strongest accepted match. Results are visual navigation suggestions, not verified museum facts.',
+        'Use this whenever the visitor asks to find, locate, inspect, look closely at, or zoom into a specific visible subject or section of the current painting. Pass the visitor’s natural-language target. The gallery first resolves matching authored detail aliases; otherwise it runs browser-local Grounding DINO Tiny detection on demand with WebGPU when available, refines the best matches with SlimSAM, and immediately zooms the shared page to the strongest accepted match. Model results are visual navigation suggestions, not verified museum facts.',
       inputSchema: zoomToArtworkDetailInputSchema,
       annotations: { readOnlyHint: false },
       execute: async (input, options) => {
@@ -369,10 +369,9 @@ export function createGalleryTools(
           );
         }
 
-        const modelRegions = state.acceptedModelRegions[state.artworkId] ?? [];
-        const region = modelRegions.find(
-          ({ id }) => id === state.focusedRegionId,
-        );
+        const region = state.focusedRegionId
+          ? getVisibleRegion(state, state.focusedRegionId)
+          : undefined;
         if (!region) {
           return buildError(
             'zoom_to_artwork_detail',
@@ -395,7 +394,10 @@ export function createGalleryTools(
             query,
             region: compactRegion(region),
             analysis,
-            verification: 'unverified-model-suggestion',
+            verification:
+              region.provenance === 'model-detected'
+                ? 'unverified-model-suggestion'
+                : 'gallery-authored-region',
           },
         );
       },
