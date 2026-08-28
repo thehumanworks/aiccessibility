@@ -39,6 +39,7 @@ export type GalleryAction =
       regions: readonly ArtworkRegion[];
       message: string;
       backend: 'webgpu' | 'wasm';
+      focusedRegionId?: RegionId;
     }
   | {
       type: 'region-analysis-failed';
@@ -148,8 +149,27 @@ export function galleryReducer(
       if (!isArtworkId(action.artworkId)) {
         return state;
       }
+      const analysisIsForCurrentArtwork = action.artworkId === state.artworkId;
+      const requestedFocus = action.focusedRegionId
+        ? action.regions.find(({ id }) => id === action.focusedRegionId)?.id
+        : undefined;
+      const existingFocusStillExists = state.focusedRegionId
+        ? getVisibleRegion(
+            {
+              ...state,
+              acceptedModelRegions: {
+                ...state.acceptedModelRegions,
+                [action.artworkId]: action.regions,
+              },
+            },
+            state.focusedRegionId,
+          )?.id
+        : null;
       return {
         ...state,
+        focusedRegionId: analysisIsForCurrentArtwork
+          ? requestedFocus ?? existingFocusStillExists ?? null
+          : state.focusedRegionId,
         acceptedModelRegions: {
           ...state.acceptedModelRegions,
           [action.artworkId]: action.regions,

@@ -85,6 +85,21 @@ export const analyzeArtworkRegionsInputSchema = {
   additionalProperties: false,
 } as const;
 
+export const zoomToArtworkDetailInputSchema = {
+  type: 'object',
+  properties: {
+    query: {
+      type: 'string',
+      minLength: 2,
+      maxLength: 160,
+      description:
+        'A natural-language description of the visible subject or detail to find and zoom into, such as "the boats beneath the wave".',
+    },
+  },
+  required: ['query'],
+  additionalProperties: false,
+} as const;
+
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

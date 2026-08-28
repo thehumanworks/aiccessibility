@@ -6,7 +6,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
-import { createElement } from 'react';
+import { createElement, StrictMode } from 'react';
 import { afterEach } from 'vitest';
 
 import { App } from '../src/App';
@@ -37,6 +37,8 @@ interface SuccessResult {
   };
   artworks?: Array<{ id: string }>;
   regions?: Array<{ id: string; provenance: string }>;
+  query?: string;
+  region?: { id: string; provenance: string; confidence: number };
   description?: {
     mode: string;
     segments: Array<{ provenance: string; text: string }>;
@@ -73,6 +75,77 @@ class FakeModelContext extends EventTarget implements WebMCP.ModelContext {
   }
 }
 
+class AutoRespondingRegionWorker extends EventTarget {
+  static instances: AutoRespondingRegionWorker[] = [];
+  terminated = false;
+
+  constructor() {
+    super();
+    AutoRespondingRegionWorker.instances.push(this);
+  }
+
+  postMessage(message: { type: string; requestId: string }) {
+    if (message.type !== 'analyze') return;
+    queueMicrotask(() => {
+      this.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'result',
+            requestId: message.requestId,
+            result: {
+              artworkId: 'pissarro-boulevard-montmartre',
+              status: 'complete',
+              analyzedLocally: true,
+              model: {
+                runtime: '@huggingface/transformers@3.8.1',
+                backend: 'webgpu',
+                detector: {
+                  id: 'onnx-community/grounding-dino-tiny-ONNX',
+                  revision: 'test-detector-revision',
+                  dtype: 'q4f16',
+                },
+                refiner: {
+                  id: 'Xenova/slimsam-77-uniform',
+                  revision: 'test-refiner-revision',
+                  dtype: 'q8',
+                },
+              },
+              regions: [
+                {
+                  id: 'model-red-omnibus-test',
+                  label: 'red omnibus',
+                  confidence: 0.79,
+                  bounds: { x: 0.4, y: 0.48, width: 0.18, height: 0.2 },
+                  provenance: 'model-detected',
+                  verification: 'unverified-model-suggestion',
+                  model: {
+                    runtime: '@huggingface/transformers@3.8.1',
+                    backend: 'webgpu',
+                    detector: {
+                      id: 'onnx-community/grounding-dino-tiny-ONNX',
+                      revision: 'test-detector-revision',
+                      dtype: 'q4f16',
+                    },
+                    refiner: {
+                      id: 'Xenova/slimsam-77-uniform',
+                      revision: 'test-refiner-revision',
+                      dtype: 'q8',
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        }),
+      );
+    });
+  }
+
+  terminate() {
+    this.terminated = true;
+  }
+}
+
 function createTestController(
   runRegionAnalysis?: RegionAnalysisRunner,
 ): GalleryController {
@@ -105,6 +178,8 @@ function executionOptions(signal = new AbortController().signal) {
 afterEach(() => {
   window.history.replaceState(null, '', '/');
   Reflect.deleteProperty(document, 'modelContext');
+  AutoRespondingRegionWorker.instances = [];
+  vi.unstubAllGlobals();
 });
 
 describe('WebMCP probe contracts', () => {
@@ -126,6 +201,7 @@ describe('WebMCP probe contracts', () => {
       'set_experience_mode',
       'list_regions',
       'analyze_artwork_regions',
+      'zoom_to_artwork_detail',
       'focus_region',
       'describe_region',
       'clear_region_focus',
@@ -163,6 +239,9 @@ describe('WebMCP probe contracts', () => {
     expect(findTool(tools, 'focus_region').annotations?.readOnlyHint).toBe(false);
     expect(
       findTool(tools, 'analyze_artwork_regions').annotations?.readOnlyHint,
+    ).toBe(false);
+    expect(
+      findTool(tools, 'zoom_to_artwork_detail').annotations?.readOnlyHint,
     ).toBe(false);
   });
 
@@ -280,7 +359,7 @@ describe('WebMCP probe contracts', () => {
             confidence: 0.82,
             provenance: 'model-detected',
             model: {
-              detector: 'onnx-community/owlv2-base-patch16-ensemble-ONNX',
+              detector: 'onnx-community/grounding-dino-tiny-ONNX',
               detectorRevision: 'test-revision',
               backend: 'webgpu',
             },
@@ -299,6 +378,101 @@ describe('WebMCP probe contracts', () => {
     expect(result.state).toMatchObject({
       availableRegionCount: 4,
       regionAnalysis: { phase: 'complete', backend: 'webgpu' },
+    });
+  });
+
+  it('runs a natural-language model query and atomically focuses the strongest match', async () => {
+    const runner: RegionAnalysisRunner = async (request) => {
+      expect(request.labels).toEqual(['the boats beneath the wave']);
+      expect(request.threshold).toBe(0.12);
+      expect(request.maxRegions).toBe(4);
+      for (let index = 0; index <= 100; index += 1) {
+        request.onProgress({
+          phase: 'loading',
+          progress: index / 100,
+          message: 'Downloading local model chunks.',
+          backend: 'webgpu',
+        });
+      }
+      return {
+        backend: 'webgpu',
+        regions: [
+          {
+            id: 'hokusai-great-wave--model--boats-low',
+            label: 'boats',
+            description: 'A lower-confidence local model suggestion.',
+            bounds: { x: 0.14, y: 0.62, width: 0.24, height: 0.2 },
+            confidence: 0.44,
+            provenance: 'model-detected',
+          },
+          {
+            id: 'hokusai-great-wave--model--boats-best',
+            label: 'boats beneath the wave',
+            description: 'The strongest local model suggestion.',
+            bounds: { x: 0.24, y: 0.54, width: 0.31, height: 0.24 },
+            confidence: 0.87,
+            provenance: 'model-detected',
+            model: {
+              detector: 'onnx-community/grounding-dino-tiny-ONNX',
+              detectorRevision: 'test-revision',
+              refiner: 'Xenova/slimsam-77-uniform',
+              refinerRevision: 'test-refiner-revision',
+              backend: 'webgpu',
+            },
+          },
+        ],
+      };
+    };
+    const controller = createTestController(runner);
+    controller.navigateToArtwork('hokusai-great-wave');
+
+    const result = (await findTool(
+      createGalleryTools(controller),
+      'zoom_to_artwork_detail',
+    ).execute(
+      { query: '  the boats beneath the wave  ' },
+      executionOptions(),
+    )) as SuccessResult;
+
+    expect(result).toMatchObject({
+      ok: true,
+      action: 'zoom_to_artwork_detail',
+      query: 'the boats beneath the wave',
+      verification: 'unverified-model-suggestion',
+      region: {
+        id: 'hokusai-great-wave--model--boats-best',
+        provenance: 'model-detected',
+        confidence: 0.87,
+      },
+      state: {
+        focusedRegion: {
+          id: 'hokusai-great-wave--model--boats-best',
+          provenance: 'model-detected',
+        },
+        regionAnalysis: { phase: 'complete', backend: 'webgpu' },
+      },
+    });
+    expect(controller.getState().focusedRegionId).toBe(
+      'hokusai-great-wave--model--boats-best',
+    );
+    expect(controller.getState().revision).toBeLessThan(20);
+  });
+
+  it('returns a recoverable not-found result when a natural-language query has no accepted match', async () => {
+    const controller = createTestController(async () => ({
+      backend: 'webgpu',
+      regions: [],
+    }));
+    const result = (await findTool(
+      createGalleryTools(controller),
+      'zoom_to_artwork_detail',
+    ).execute({ query: 'a purple airship' }, executionOptions())) as ErrorResult;
+
+    expect(result.error.code).toBe('DETAIL_NOT_FOUND');
+    expect(controller.getState().focusedRegionId).toBeNull();
+    expect(controller.getState().regionAnalysis[controller.getState().artworkId]).toMatchObject({
+      phase: 'complete',
+      backend: 'webgpu',
     });
   });
 
@@ -427,7 +601,7 @@ describe('WebMCP probe contracts', () => {
     });
 
     const { unmount } = render(createElement(App));
-    await waitFor(() => expect(modelContext.tools).toHaveLength(9));
+    await waitFor(() => expect(modelContext.tools).toHaveLength(10));
 
     await act(async () => {
       await findTool(modelContext.tools, 'set_experience_mode').execute(
@@ -452,7 +626,7 @@ describe('WebMCP probe contracts', () => {
       'story',
     );
     expect(window.location.search).toBe('?artwork=hokusai-great-wave');
-    expect(modelContext.tools).toHaveLength(9);
+    expect(modelContext.tools).toHaveLength(10);
 
     // The tool-set mode is the chosen option of the wall-label control.
     const checkedStyle = (group: HTMLElement) =>
@@ -480,6 +654,47 @@ describe('WebMCP probe contracts', () => {
 
     unmount();
     expect(modelContext.tools).toHaveLength(0);
+  });
+
+  it('keeps the lazy model client usable through StrictMode effect replay', async () => {
+    vi.stubGlobal('Worker', AutoRespondingRegionWorker);
+    const modelContext = new FakeModelContext();
+    Object.defineProperty(document, 'modelContext', {
+      configurable: true,
+      value: modelContext,
+    });
+
+    const { unmount } = render(
+      createElement(StrictMode, null, createElement(App)),
+    );
+    await waitFor(() => expect(modelContext.tools).toHaveLength(10));
+
+    let result: SuccessResult | undefined;
+    await act(async () => {
+      result = (await findTool(
+        modelContext.tools,
+        'zoom_to_artwork_detail',
+      ).execute(
+        { query: 'red omnibus' },
+        executionOptions(),
+      )) as SuccessResult;
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      state: {
+        focusedRegion: {
+          provenance: 'model-detected',
+        },
+        regionAnalysis: { phase: 'complete', backend: 'webgpu' },
+      },
+    });
+    expect(AutoRespondingRegionWorker.instances).toHaveLength(1);
+    expect(AutoRespondingRegionWorker.instances[0]?.terminated).toBe(false);
+
+    unmount();
+    await Promise.resolve();
+    expect(AutoRespondingRegionWorker.instances[0]?.terminated).toBe(true);
   });
 
   it('leaves the manual gallery available when WebMCP is unsupported', async () => {

@@ -83,6 +83,7 @@ test('registered tools mutate the visible gallery and remain available', async (
       'set_experience_mode',
       'list_regions',
       'analyze_artwork_regions',
+      'zoom_to_artwork_detail',
       'focus_region',
       'describe_region',
       'clear_region_focus',
@@ -107,6 +108,7 @@ test('registered tools mutate the visible gallery and remain available', async (
   expect(regions.regions?.every(({ provenance }) => provenance === 'authored')).toBe(
     true,
   );
+  await expect(page.locator('.region-focus-marker')).toHaveCount(0);
 
   const focused = await page.evaluate(() =>
     window.galleryToolHarness.execute('focus_region', {
@@ -117,6 +119,7 @@ test('registered tools mutate the visible gallery and remain available', async (
     'data-focused-region',
     'pissarro-left-tree',
   );
+  await expect(page.locator('.region-focus-marker')).toHaveCount(1);
   await expect(page.getByRole('status')).toContainText(
     'Focused on The near winter tree.',
   );
@@ -173,7 +176,7 @@ test('registered tools mutate the visible gallery and remain available', async (
     },
   });
   expect(await page.evaluate(() => window.galleryToolHarness.names())).toHaveLength(
-    9,
+    10,
   );
 
   // The settings copy of the shared select agrees with the tool result.
@@ -186,7 +189,7 @@ test('registered tools mutate the visible gallery and remain available', async (
   ).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape');
   expect(await page.evaluate(() => window.galleryToolHarness.names())).toHaveLength(
-    9,
+    10,
   );
 });
 

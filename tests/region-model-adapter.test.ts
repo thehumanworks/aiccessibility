@@ -152,9 +152,14 @@ describe('Transformers.js region model adapter', () => {
       REGION_MODEL_BUNDLE.refiner.id,
       expect.objectContaining({
         revision: REGION_MODEL_BUNDLE.refiner.revision,
-        device: 'webgpu',
+        device: 'wasm',
         dtype: 'q8',
       }),
+    );
+    expect(mock.detectors[0]).toHaveBeenCalledWith(
+      '/painting.jpg',
+      ['tree.', 'boat.'],
+      expect.objectContaining({ percentage: true }),
     );
     expect(first.regions).toHaveLength(2);
     expect(first.regions[0]).toMatchObject({

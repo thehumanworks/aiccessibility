@@ -147,7 +147,12 @@ export function acceptDetections(
 
   const candidates = detections
     .flatMap((detection) => {
-      const label = detection.label.trim().replace(/\s+/g, ' ').slice(0, 80);
+      const label = detection.label
+        .replace(/\s*\[(?:CLS|SEP|PAD)\]\s*/gi, ' ')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .replace(/[.\s]+$/g, '')
+        .slice(0, 80);
       const bounds = normalizeBounds(detection.box);
       const area = bounds ? bounds.width * bounds.height : 0;
       if (

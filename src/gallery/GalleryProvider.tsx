@@ -37,6 +37,7 @@ export function GalleryProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(galleryReducer, undefined, initializeGallery);
   const [siteToolsSupported, setSiteToolsSupported] = useState(false);
   const regionAnalysis = useMemo(() => createGalleryRegionAnalysisRunner(), []);
+  const regionAnalysisConsumers = useRef(0);
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -60,7 +61,17 @@ export function GalleryProvider({ children }: { children: ReactNode }) {
     [applyAction, getState, regionAnalysis.runner],
   );
 
-  useEffect(() => () => regionAnalysis.dispose(), [regionAnalysis]);
+  useEffect(() => {
+    regionAnalysisConsumers.current += 1;
+    return () => {
+      regionAnalysisConsumers.current -= 1;
+      queueMicrotask(() => {
+        if (regionAnalysisConsumers.current === 0) {
+          regionAnalysis.dispose();
+        }
+      });
+    };
+  }, [regionAnalysis]);
 
   useEffect(() => {
     const registration = registerGalleryTools(controller);

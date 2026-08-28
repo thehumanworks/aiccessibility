@@ -221,6 +221,24 @@ Input:
 { regionId: RegionId }
 ```
 
+### `zoom_to_artwork_detail`
+
+Mutation. Accepts the visitor's natural-language visual target, lazily runs the
+browser-local Grounding DINO Tiny detector and SlimSAM refiner, selects the strongest accepted
+match, and stores the result and focused region in one state update. WebGPU is
+preferred for phrase grounding, while the small SlimSAM refiner uses WASM to
+avoid browser-specific `GridSample` shader failures. The verified result reports
+the backend actually used by each stage. The
+returned region is explicitly marked as an unverified model suggestion rather
+than museum-authored fact. If no candidate passes acceptance, the tool returns a
+recoverable `DETAIL_NOT_FOUND` result and does not invent a region.
+
+Input:
+
+```ts
+{ query: string }
+```
+
 ### `clear_region_focus`
 
 Mutation. Restores the whole artwork without changing mode or interpretation.

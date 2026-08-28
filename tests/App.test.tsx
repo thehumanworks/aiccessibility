@@ -164,34 +164,18 @@ describe('AIccessibility gallery shell', () => {
     expect(document.getElementById('artwork-stage')).not.toBeNull();
   });
 
-  it('offers authored region focus before any optional model download', () => {
+  it('starts with a clean canvas and explains agent-triggered local zoom', () => {
     const { container } = render(<App />);
 
-    expect(
-      screen.getByRole('button', { name: 'Analyze regions locally' }),
-    ).toBeVisible();
-    expect(
-      screen.getAllByRole('button', { name: /^Focus region:/ }),
-    ).toHaveLength(3);
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Focus region: The near winter tree' }),
-    );
-    expect(container.querySelector('.artwork-canvas')).toHaveAttribute(
-      'data-focused-region',
-      'pissarro-left-tree',
-    );
-    expect(screen.getByRole('status')).toHaveTextContent(
-      'Focused on The near winter tree.',
-    );
-    expect(
-      screen.getByRole('button', { name: 'Show whole artwork' }),
-    ).toBeEnabled();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Show whole artwork' }));
+    expect(screen.queryByRole('button', { name: /^Focus region:/ })).toBeNull();
+    expect(container.querySelectorAll('.region-focus-marker')).toHaveLength(0);
     expect(container.querySelector('.artwork-canvas')).toHaveAttribute(
       'data-focused-region',
       '',
     );
+    expect(
+      screen.getByText(/Ask your browser agent to zoom into any visible detail/),
+    ).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Show whole artwork' })).toBeNull();
   });
 });

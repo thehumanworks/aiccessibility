@@ -17,8 +17,8 @@ import type {
 export const REGION_MODEL_BUNDLE = {
   runtime: '@huggingface/transformers@3.8.1',
   detector: {
-    id: 'onnx-community/owlv2-base-patch16-ensemble-ONNX',
-    revision: '180d6ef7599bd69bb48db5c72bd49ad03ddfab80',
+    id: 'onnx-community/grounding-dino-tiny-ONNX',
+    revision: 'ff690b0a8050566c290287545bd059350f3e9096',
   },
   refiner: {
     id: 'Xenova/slimsam-77-uniform',
@@ -189,6 +189,20 @@ async function safelyDispose(value: DisposableLike | undefined): Promise<void> {
   }
 }
 
+function modelStageError(stage: string, error: unknown): Error {
+  const detail =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : typeof error === 'object' && error !== null
+          ? Object.prototype.toString.call(error)
+          : String(error);
+  return new Error(`${stage}: ${detail || 'unknown model error'}`, {
+    cause: error,
+  });
+}
+
 function scoreAt(tensor: TensorLike, index: number): number {
   const value = tensor.data[index];
   return typeof value === 'bigint' ? Number(value) : Number(value ?? 0);
@@ -243,9 +257,12 @@ export function createTransformersRegionAdapter(
     onProgress?: RegionProgressListener,
   ): Promise<LoadedRuntime> => {
     const detectorDtype = backend === 'webgpu' ? 'q4f16' : 'q8';
+    const refinerBackend: RegionModelBackend =
+      backend === 'webgpu' ? 'wasm' : backend;
     const callback = progressCallback(onProgress, backend);
     let detector: DetectorLike | undefined;
     let samModel: SamModelLike | undefined;
+    let loadingStage = `Loading Grounding DINO Tiny on ${backend}`;
     try {
       detector = await bindings.pipeline(
         'zero-shot-object-detection',
@@ -257,15 +274,17 @@ export function createTransformersRegionAdapter(
           progress_callback: callback,
         },
       );
+      loadingStage = `Loading SlimSAM on ${backend}`;
       samModel = await bindings.SamModel.from_pretrained(
         REGION_MODEL_BUNDLE.refiner.id,
         {
           revision: REGION_MODEL_BUNDLE.refiner.revision,
-          device: backend,
+          device: refinerBackend,
           dtype: 'q8',
           progress_callback: callback,
         },
       );
+      loadingStage = 'Loading the SlimSAM processor';
       const samProcessor = await bindings.AutoProcessor.from_pretrained(
         REGION_MODEL_BUNDLE.refiner.id,
         {
@@ -286,12 +305,16 @@ export function createTransformersRegionAdapter(
             ...REGION_MODEL_BUNDLE.detector,
             dtype: detectorDtype,
           },
-          refiner: { ...REGION_MODEL_BUNDLE.refiner, dtype: 'q8' },
+          refiner: {
+            ...REGION_MODEL_BUNDLE.refiner,
+            dtype: 'q8',
+            backend: refinerBackend,
+          },
         },
       };
     } catch (error) {
       await Promise.all([safelyDispose(detector), safelyDispose(samModel)]);
-      throw error;
+      throw modelStageError(loadingStage, error);
     }
   };
 
@@ -304,10 +327,12 @@ export function createTransformersRegionAdapter(
 
     runtimePromise = (async () => {
       const bindings = await loadBindings();
+      let webGpuFailure: unknown;
       if (!forceWasm && (await canUseWebGpu())) {
         try {
           return await loadAttempt(bindings, 'webgpu', onProgress);
-        } catch {
+        } catch (error) {
+          webGpuFailure = error;
           onProgress?.({
             phase: 'fallback',
             message: 'WebGPU was unavailable for this model; continuing locally with WASM.',
@@ -315,7 +340,16 @@ export function createTransformersRegionAdapter(
           });
         }
       }
-      return loadAttempt(bindings, 'wasm', onProgress);
+      try {
+        return await loadAttempt(bindings, 'wasm', onProgress);
+      } catch (error) {
+        if (!webGpuFailure) throw error;
+        throw new Error(
+          `${webGpuFailure instanceof Error ? webGpuFailure.message : String(webGpuFailure)}; ` +
+            `WASM fallback also failed: ${error instanceof Error ? error.message : String(error)}`,
+          { cause: error },
+        );
+      }
     })();
 
     try {
@@ -376,7 +410,7 @@ export function createTransformersRegionAdapter(
       phase: 'refining',
       message: `Refining ${accepted.length} detected region${accepted.length === 1 ? '' : 's'} locally…`,
       progress: 0.72,
-      backend: loaded.backend,
+      backend: loaded.metadata.refiner.backend ?? loaded.backend,
     });
     const cached = await getEmbedding(loaded, input);
     const boxes = accepted.map(({ bounds }) => [
@@ -462,6 +496,10 @@ export function createTransformersRegionAdapter(
     onProgress?: RegionProgressListener,
   ): Promise<AnalyzeArtworkRegionsResult> => {
     const labels = sanitizeCandidateLabels(input.candidateLabels);
+    const detectorLabels = labels.map((label) => {
+      const normalized = label.toLocaleLowerCase().replace(/[.\s]+$/g, '');
+      return `${normalized}.`;
+    });
     const detectionThreshold = Math.min(
       1,
       Math.max(0.01, input.detectionThreshold ?? 0.08),
@@ -477,7 +515,7 @@ export function createTransformersRegionAdapter(
       progress: 0.58,
       backend: loaded.backend,
     });
-    const detections = await loaded.detector(input.imageUrl, labels, {
+    const detections = await loaded.detector(input.imageUrl, detectorLabels, {
       threshold: detectionThreshold,
       top_k: Math.min(48, maxRegions * 4),
       percentage: true,

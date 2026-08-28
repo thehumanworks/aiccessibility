@@ -233,13 +233,44 @@ test('reduced motion makes region zoom immediate while preserving focus', async 
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => {
+    interface HarnessTool {
+      name: string;
+      execute: (
+        input: Record<string, unknown>,
+        options: { signal: AbortSignal },
+      ) => unknown;
+    }
+
+    const tools = new Map<string, HarnessTool>();
+    Object.defineProperty(document, 'modelContext', {
+      configurable: true,
+      value: {
+        registerTool(tool: HarnessTool) {
+          tools.set(tool.name, tool);
+          return Promise.resolve();
+        },
+      },
+    });
+    Object.defineProperty(window, 'callRegionTool', {
+      configurable: true,
+      value: (name: string, input: Record<string, unknown>) =>
+        tools
+          .get(name)!
+          .execute(input, { signal: new AbortController().signal }),
+    });
+  });
   await page.goto('/');
 
   const canvas = page.locator('.artwork-canvas');
   const surface = page.locator('.artwork-zoom-surface');
-  await page
-    .getByRole('button', { name: 'Focus region: The near winter tree' })
-    .click();
+  await page.evaluate(() =>
+    (
+      window as unknown as {
+        callRegionTool: (name: string, input: unknown) => unknown;
+      }
+    ).callRegionTool('focus_region', { regionId: 'pissarro-left-tree' }),
+  );
 
   await expect(canvas).toHaveAttribute('data-motion', 'reduced');
   await expect(canvas).toHaveAttribute(

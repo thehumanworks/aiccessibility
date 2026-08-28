@@ -3,6 +3,20 @@ import type { RegionWorkerRequest, RegionWorkerResponse } from './worker-protoco
 
 export type RegionWorkerPostMessage = (message: RegionWorkerResponse) => void;
 
+function errorMessage(error: unknown): string {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string' &&
+    error.message.length > 0
+  ) {
+    return error.message;
+  }
+  if (typeof error === 'string' && error.length > 0) return error;
+  return 'Local analysis failed.';
+}
+
 export function createRegionWorkerMessageHandler(
   adapter: RegionModelAdapter,
   postMessage: RegionWorkerPostMessage,
@@ -25,7 +39,7 @@ export function createRegionWorkerMessageHandler(
         requestId: request.requestId,
         error: {
           code: 'analysis-failed',
-          message: error instanceof Error ? error.message : 'Local analysis failed.',
+          message: errorMessage(error),
         },
       });
     }

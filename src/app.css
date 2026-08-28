@@ -476,7 +476,7 @@
     pointer-events: none;
   }
 
-  .region-hotspot {
+  .region-focus-marker {
     position: absolute;
     z-index: 2;
     inset-block-start: var(--region-y);
@@ -484,55 +484,7 @@
     width: var(--region-width);
     height: var(--region-height);
     padding: 0;
-    border: 1px solid rgb(217 181 115 / 72%);
-    border-radius: 0.18rem;
-    background: rgb(8 10 16 / 10%);
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 22%);
-    cursor: zoom-in;
-    opacity: 0.52;
-    pointer-events: auto;
-  }
-
-  .region-hotspot[data-provenance="model-detected"] {
-    border-style: dashed;
-    border-color: rgb(159 220 255 / 82%);
-  }
-
-  .region-hotspot:hover,
-  .region-hotspot:focus-visible,
-  .region-hotspot[aria-pressed="true"] {
-    background: rgb(217 181 115 / 16%);
-    opacity: 1;
-  }
-
-  .region-hotspot[aria-pressed="true"] {
-    cursor: zoom-out;
-    box-shadow:
-      inset 0 0 0 2px rgb(242 238 230 / 85%),
-      0 0 1.2rem rgb(159 220 255 / 55%);
-  }
-
-  .region-hotspot-label {
-    position: absolute;
-    inset-block-start: 0.25rem;
-    inset-inline-start: 0.25rem;
-    max-width: calc(100% - 0.5rem);
-    padding: 0.18rem 0.35rem;
-    overflow: hidden;
-    color: #080a10;
-    background: rgb(242 238 230 / 92%);
-    font-size: clamp(0.46rem, 0.8vw, 0.62rem);
-    font-weight: 700;
-    line-height: 1.2;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    opacity: 0;
-  }
-
-  .region-hotspot:hover .region-hotspot-label,
-  .region-hotspot:focus-visible .region-hotspot-label,
-  .region-hotspot[aria-pressed="true"] .region-hotspot-label {
-    opacity: 1;
+    pointer-events: none;
   }
 
   .region-mask {
@@ -610,8 +562,6 @@
       transition: transform 360ms var(--ease);
     }
 
-    .region-hotspot,
-    .region-hotspot-label,
     .region-action {
       transition:
         opacity var(--speed) var(--ease),

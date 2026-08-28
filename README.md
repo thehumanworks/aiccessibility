@@ -11,11 +11,13 @@ deliberately minimal: a wordmark, a wall label, discreet edge navigation, and a
 single settings cog that opens an accessible modal holding the five experience
 modes and the supporting explanations.
 
-Four Site Tools are registered on the top-level document — `get_gallery_state`,
-`list_artworks`, `navigate_to_artwork`, and `set_experience_mode` — and they
-drive exactly the same reducer as the visible controls, so an agent and a person
-never diverge into separate state. Live ChatGPT Voice validation is **not** yet
-complete; see
+Ten Site Tools are registered on the top-level document. Alongside collection,
+navigation, speaking-style, and authored-region actions,
+`zoom_to_artwork_detail` accepts a natural-language visual target, runs Grounding DINO Tiny
+and SlimSAM locally only when called, and atomically zooms the shared page to the
+strongest accepted match. The tools drive exactly the same reducer as the
+visible controls, so an agent and a person never diverge into separate state.
+Live ChatGPT Voice validation is **not** yet complete; see
 [`docs/voice-validation.md`](docs/voice-validation.md) for the current status.
 
 ## Requirements
@@ -59,6 +61,9 @@ npx playwright install chromium
 - Vite, React, and strict TypeScript
 - Motion for the full-viewport settings transition, Speaking style feedback,
   atmosphere crossfades, and the shared manual/WebMCP artwork carousel
+- Transformers.js 3.8.1 for pinned, worker-isolated Grounding DINO Tiny
+  detection on WebGPU and SlimSAM refinement on WASM, with a local WASM
+  fallback for detection when WebGPU is unavailable
 - Plain CSS using cascade layers, custom-property design tokens, and a container
   query on the stage so the artwork sizes itself to the space that is actually
   left over
@@ -72,6 +77,8 @@ npx playwright install chromium
 Key files:
 
 - [`src/webmcp/tools.ts`](src/webmcp/tools.ts) — Site Tool definitions and executors
+- [`src/regions/transformers-adapter.ts`](src/regions/transformers-adapter.ts) —
+  lazy WebGPU/WASM vision-model loading, detection, and mask refinement
 - [`src/gallery/reducer.ts`](src/gallery/reducer.ts) — the single state graph
 - [`src/gallery/SettingsDialog.tsx`](src/gallery/SettingsDialog.tsx) — the cog modal
 - [`src/gallery/SpeakingStyleSelect.tsx`](src/gallery/SpeakingStyleSelect.tsx) —

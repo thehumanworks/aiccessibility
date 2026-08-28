@@ -14,6 +14,7 @@ export type GalleryToolAction =
   | 'set_experience_mode'
   | 'list_regions'
   | 'analyze_artwork_regions'
+  | 'zoom_to_artwork_detail'
   | 'focus_region'
   | 'describe_region'
   | 'clear_region_focus';
@@ -52,6 +53,7 @@ export function buildGalleryState(state: GalleryState) {
       progress: regionAnalysis.progress,
       backend: regionAnalysis.backend,
       message: regionAnalysis.message,
+      ...(regionAnalysis.error ? { error: regionAnalysis.error } : {}),
     },
     hasInterpretation: state.interpretation !== null,
     collectionSize: listArtworks().length,

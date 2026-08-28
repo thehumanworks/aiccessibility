@@ -131,6 +131,9 @@ export function createGalleryRegionAnalysisRunner(
             detectorRevision: region.model.detector.revision,
             refiner: region.model.refiner.id,
             refinerRevision: region.model.refiner.revision,
+            ...(region.model.refiner.backend
+              ? { refinerBackend: region.model.refiner.backend }
+              : {}),
             backend: region.model.backend,
           },
           ...(mask ? { mask } : {}),

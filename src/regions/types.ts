@@ -31,6 +31,7 @@ export interface RegionModelMetadata {
     id: string;
     revision: string;
     dtype: 'q8';
+    backend?: RegionModelBackend;
   };
 }
 

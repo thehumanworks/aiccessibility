@@ -5,7 +5,11 @@ import { getArtwork, listArtworks } from './collection/repository';
 import { AccessibilityStatus } from './gallery/AccessibilityStatus';
 import { GalleryNav } from './gallery/GalleryNav';
 import { GalleryProvider, useGallery } from './gallery/GalleryProvider';
-import { getCurrentRegionAnalysis, getVisibleRegions } from './gallery/regions';
+import {
+  getCurrentRegionAnalysis,
+  getVisibleRegion,
+  getVisibleRegions,
+} from './gallery/regions';
 import { modeAtmospheres } from './gallery/modes';
 import { SettingsDialog } from './gallery/SettingsDialog';
 import { SpeakingStyleSelect } from './gallery/SpeakingStyleSelect';
@@ -22,6 +26,9 @@ function GalleryExperience() {
 
   const artworks = listArtworks();
   const artwork = getArtwork(state.artworkId);
+  const focusedRegion = state.focusedRegionId
+    ? getVisibleRegion(state, state.focusedRegionId)
+    : undefined;
   const currentIndex = artworks.findIndex(({ id }) => id === state.artworkId);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
@@ -114,7 +121,7 @@ function GalleryExperience() {
         <AccessibilityStatus
           artwork={artwork}
           mode={state.mode}
-          focusedRegionId={state.focusedRegionId}
+          focusedRegionLabel={focusedRegion?.label ?? null}
           currentIndex={currentIndex}
           collectionSize={artworks.length}
           regionAnalysis={getCurrentRegionAnalysis(state)}

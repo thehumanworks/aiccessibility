@@ -39,6 +39,10 @@ export interface AnalyzeArtworkRegionOptions {
   signal?: AbortSignal;
 }
 
+export interface ZoomToArtworkDetailOptions {
+  signal?: AbortSignal;
+}
+
 interface GalleryControllerDependencies {
   getState: () => GalleryState;
   applyAction: (action: GalleryAction) => GalleryState;
@@ -56,6 +60,10 @@ export interface GalleryController {
   clearRegionFocus: () => GalleryState;
   analyzeArtworkRegions: (
     options?: AnalyzeArtworkRegionOptions,
+  ) => Promise<GalleryState>;
+  zoomToArtworkDetail: (
+    query: string,
+    options?: ZoomToArtworkDetailOptions,
   ) => Promise<GalleryState>;
 }
 
@@ -89,11 +97,13 @@ export function createGalleryController({
     return artwork ? navigate(artwork.id, true) : getState();
   };
 
-  const analyzeArtworkRegions = async (
-    options: AnalyzeArtworkRegionOptions = {},
+  const runArtworkRegionAnalysis = async (
+    options: AnalyzeArtworkRegionOptions,
+    focusBestMatch: boolean,
   ) => {
     const artworkId = getState().artworkId;
     const artwork = getArtwork(artworkId);
+    let lastAppliedProgress: RegionAnalysisProgress | undefined;
     const labels = (options.labels ?? artwork.discovery.subjects)
       .map((label) => label.trim())
       .filter(Boolean)
@@ -119,19 +129,51 @@ export function createGalleryController({
         maxRegions: options.maxRegions ?? 8,
         ...(options.signal ? { signal: options.signal } : {}),
         onProgress: (progress) => {
+          const scaledProgress =
+            progress.phase === 'loading'
+              ? Math.min(0.45, progress.progress * 0.45)
+              : progress.progress;
+          const displayedProgress =
+            progress.phase === 'loading' &&
+            lastAppliedProgress?.phase === 'loading'
+              ? Math.max(lastAppliedProgress.progress, scaledProgress)
+              : scaledProgress;
+          const nextProgress = {
+            ...progress,
+            progress: displayedProgress,
+          };
+          if (
+            lastAppliedProgress &&
+            lastAppliedProgress.phase === nextProgress.phase &&
+            lastAppliedProgress.backend === nextProgress.backend &&
+            Math.abs(lastAppliedProgress.progress - nextProgress.progress) < 0.05
+          ) {
+            return;
+          }
+          lastAppliedProgress = nextProgress;
           applyAction({
             type: 'region-analysis-progress',
             artworkId,
-            ...progress,
+            ...nextProgress,
           });
         },
       });
+      const bestMatch = focusBestMatch
+        ? result.regions.reduce<ArtworkRegion | undefined>(
+            (best, region) =>
+              !best || (region.confidence ?? 0) > (best.confidence ?? 0)
+                ? region
+                : best,
+            undefined,
+          )
+        : undefined;
       return applyAction({
         type: 'region-analysis-complete',
         artworkId,
         regions: result.regions,
         backend: result.backend,
         message: `Local analysis complete. ${result.regions.length} model suggestion${result.regions.length === 1 ? '' : 's'} accepted for exploration.`,
+        ...(bestMatch ? { focusedRegionId: bestMatch.id } : {}),
       });
     } catch (error) {
       const message =
@@ -157,6 +199,17 @@ export function createGalleryController({
     focusRegion: (regionId) =>
       applyAction({ type: 'focus-region', regionId }),
     clearRegionFocus: () => applyAction({ type: 'clear-focus' }),
-    analyzeArtworkRegions,
+    analyzeArtworkRegions: (options = {}) =>
+      runArtworkRegionAnalysis(options, false),
+    zoomToArtworkDetail: (query, options = {}) =>
+      runArtworkRegionAnalysis(
+        {
+          labels: [query],
+          threshold: 0.12,
+          maxRegions: 4,
+          ...(options.signal ? { signal: options.signal } : {}),
+        },
+        true,
+      ),
   };
 }

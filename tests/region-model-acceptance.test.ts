@@ -57,6 +57,21 @@ describe('region model acceptance', () => {
     expect(boundsIoU(accepted[0]!.bounds, accepted[1]!.bounds)).toBe(0);
   });
 
+  it('removes Grounding DINO control tokens from visitor-facing labels', () => {
+    const [accepted] = acceptDetections(
+      [
+        {
+          label: 'the boats beneath the wave. [SEP]',
+          score: 0.81,
+          box: { xmin: 0.2, ymin: 0.4, xmax: 0.6, ymax: 0.8 },
+        },
+      ],
+      { threshold: 0.2 },
+    );
+
+    expect(accepted?.label).toBe('the boats beneath the wave');
+  });
+
   it('generates stable ids at the documented one-thousandth precision', () => {
     const first = createModelRegionId('Blue boat', {
       x: 0.2004,

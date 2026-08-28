@@ -132,6 +132,29 @@ describe('region worker protocol', () => {
       error: { code: 'analysis-failed', message: 'operator unsupported' },
     });
   });
+
+  it('preserves message-bearing worker failures that are not Error instances', async () => {
+    const responses: RegionWorkerResponse[] = [];
+    const adapter: RegionModelAdapter = {
+      analyze: vi.fn().mockRejectedValue({
+        message: 'WebGPU validation rejected the model graph.',
+      }),
+      dispose: vi.fn(async () => undefined),
+    };
+    const handle = createRegionWorkerMessageHandler(adapter, (message) => {
+      responses.push(message);
+    });
+
+    await handle({ type: 'analyze', requestId: 'gpu-error', input: analysisInput });
+
+    expect(responses[0]).toMatchObject({
+      type: 'error',
+      error: {
+        code: 'analysis-failed',
+        message: 'WebGPU validation rejected the model graph.',
+      },
+    });
+  });
 });
 describe('gallery region runner bridge', () => {
   it('maps model suggestions to stable, explicitly unverified gallery regions', async () => {

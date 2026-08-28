@@ -98,6 +98,7 @@ export interface RegionModelMetadata {
   detectorRevision: string;
   refiner?: string;
   refinerRevision?: string;
+  refinerBackend?: 'webgpu' | 'wasm';
   backend: 'webgpu' | 'wasm';
 }
 

@@ -21,6 +21,7 @@ import {
   navigateToArtworkInputSchema,
   regionIdInputSchema,
   setExperienceModeInputSchema,
+  zoomToArtworkDetailInputSchema,
 } from './schemas';
 
 function compactRegion(region: ReturnType<typeof getVisibleRegions>[number]) {
@@ -250,21 +251,22 @@ export function createGalleryTools(
       name: 'analyze_artwork_regions',
       title: 'Analyze artwork regions locally',
       description:
-        'With the visitor’s request, lazily download and run browser-local OWLv2 and SlimSAM analysis for the current artwork. Candidate labels and model suggestions are navigation aids, not verified museum facts; authored regions remain available on failure.',
+        'With the visitor’s request, lazily download and run browser-local Grounding DINO Tiny and SlimSAM analysis for the current artwork. Candidate labels and model suggestions are navigation aids, not verified museum facts; authored regions remain available on failure.',
       inputSchema: analyzeArtworkRegionsInputSchema,
       annotations: { readOnlyHint: false },
       execute: async (input, options) => {
         const validLabels =
-          input.labels === undefined ||
-          (Array.isArray(input.labels) &&
-            input.labels.length >= 1 &&
-            input.labels.length <= 12 &&
-            input.labels.every(
-              (label) =>
-                typeof label === 'string' &&
-                label.trim().length >= 1 &&
-                label.length <= 80,
-            ));
+          isRecord(input) &&
+          (input.labels === undefined ||
+            (Array.isArray(input.labels) &&
+              input.labels.length >= 1 &&
+              input.labels.length <= 12 &&
+              input.labels.every(
+                (label) =>
+                  typeof label === 'string' &&
+                  label.trim().length >= 1 &&
+                  label.length <= 80,
+              )));
         if (
           !isRecord(input) ||
           !hasOnlyKeys(input, ['labels', 'threshold', 'maxRegions']) ||
@@ -319,6 +321,81 @@ export function createGalleryTools(
           {
             analysis,
             regions: getVisibleRegions(state).map(compactRegion),
+          },
+        );
+      },
+    },
+    {
+      name: 'zoom_to_artwork_detail',
+      title: 'Find and zoom to an artwork detail',
+      description:
+        'Use this whenever the visitor asks to find, locate, inspect, look closely at, or zoom into a specific visible subject or section of the current painting. Pass the visitor’s natural-language target. This runs browser-local Grounding DINO Tiny detection on demand with WebGPU when available, refines the best matches with SlimSAM, and immediately zooms the shared page to the strongest accepted match. Results are visual navigation suggestions, not verified museum facts.',
+      inputSchema: zoomToArtworkDetailInputSchema,
+      annotations: { readOnlyHint: false },
+      execute: async (input, options) => {
+        if (
+          !isRecord(input) ||
+          !hasOnlyKeys(input, ['query']) ||
+          typeof input.query !== 'string' ||
+          input.query.trim().length < 2 ||
+          input.query.length > 160
+        ) {
+          return invalidInput(
+            controller,
+            'zoom_to_artwork_detail',
+            'query must be a natural-language visual target between 2 and 160 characters, with no other properties.',
+            '{ query: string }',
+          );
+        }
+        if (options?.signal?.aborted) {
+          return cancelled(controller, 'zoom_to_artwork_detail');
+        }
+
+        const query = input.query.trim();
+        const state = await controller.zoomToArtworkDetail(query, {
+          ...(options?.signal ? { signal: options.signal } : {}),
+        });
+        const analysis = getCurrentRegionAnalysis(state);
+        if (analysis.phase === 'failed') {
+          return buildError(
+            'zoom_to_artwork_detail',
+            state,
+            'LOCAL_ANALYSIS_FAILED',
+            analysis.message,
+            {
+              query,
+              retry: 'Try a shorter, concrete visual subject or try again when local model execution is available.',
+            },
+          );
+        }
+
+        const modelRegions = state.acceptedModelRegions[state.artworkId] ?? [];
+        const region = modelRegions.find(
+          ({ id }) => id === state.focusedRegionId,
+        );
+        if (!region) {
+          return buildError(
+            'zoom_to_artwork_detail',
+            state,
+            'DETAIL_NOT_FOUND',
+            `No accepted visual match was found for “${query}”.`,
+            {
+              query,
+              retry:
+                'Try a shorter, concrete noun phrase describing something visibly present in the painting.',
+            },
+          );
+        }
+
+        return buildSuccess(
+          'zoom_to_artwork_detail',
+          state,
+          `Found and zoomed to ${region.label}.`,
+          {
+            query,
+            region: compactRegion(region),
+            analysis,
+            verification: 'unverified-model-suggestion',
           },
         );
       },

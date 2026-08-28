@@ -3,13 +3,12 @@ import type {
   Artwork,
   ExperienceMode,
   RegionAnalysisState,
-  RegionId,
 } from './types';
 
 interface AccessibilityStatusProps {
   artwork: Artwork;
   mode: ExperienceMode;
-  focusedRegionId: RegionId | null;
+  focusedRegionLabel: string | null;
   currentIndex: number;
   collectionSize: number;
   regionAnalysis: RegionAnalysisState;
@@ -19,17 +18,14 @@ interface AccessibilityStatusProps {
 export function AccessibilityStatus({
   artwork,
   mode,
-  focusedRegionId,
+  focusedRegionLabel,
   currentIndex,
   collectionSize,
   regionAnalysis,
   availableRegionCount,
 }: AccessibilityStatusProps) {
-  const focusedRegion = focusedRegionId
-    ? artwork.regions.find(({ id }) => id === focusedRegionId)
-    : undefined;
-  const focusLabel = focusedRegion
-    ? `Focused on ${focusedRegion.label}.`
+  const focusLabel = focusedRegionLabel
+    ? `Focused on ${focusedRegionLabel}.`
     : 'Showing the whole artwork.';
 
   return (

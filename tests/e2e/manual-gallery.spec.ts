@@ -157,18 +157,9 @@ test('the wall-label styles answer arrows, Home, End, and the 1-5 number keys', 
     'Arrow keys move through the five styles. Number keys 1 to 5 choose one directly.',
   );
 
-  // Accepted authored regions and the opt-in local analysis action are keyboard
-  // stops before the style group; raw detections never appear here.
+  // The artwork starts clean: agent-triggered detections do not add dormant
+  // hotspot tab stops before the style group.
   await page.locator('#artwork-stage').focus();
-  for (const name of [
-    'Focus region: The boulevard’s flow',
-    'Focus region: The near winter tree',
-    'Focus region: The right-hand façades',
-    'Analyze regions locally',
-  ]) {
-    await page.keyboard.press('Tab');
-    await expect(page.getByRole('button', { name })).toBeFocused();
-  }
   await page.keyboard.press('Tab');
   await expect(option('Literal')).toBeFocused();
   expect(await group.getByRole('radio').evaluateAll((options) =>
