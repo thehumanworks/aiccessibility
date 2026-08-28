@@ -67,13 +67,11 @@ export function ArtworkStage({
   const enter = {
     opacity: 0,
     x: direction >= 0 ? travel : -travel,
-    scale: reduceMotion ? 1 : 0.94,
     filter: reduceMotion ? 'blur(0px)' : 'blur(9px)',
   };
   const leave = {
     opacity: 0,
     x: direction >= 0 ? -travel : travel,
-    scale: reduceMotion ? 1 : 0.94,
     filter: reduceMotion ? 'blur(0px)' : 'blur(9px)',
   };
 
@@ -85,7 +83,7 @@ export function ArtworkStage({
       data-motion={reduceMotion ? 'reduced' : 'full'}
       aria-labelledby={titleId}
       initial={enter}
-      animate={{ opacity: 1, x: 0, scale: 1, filter: 'blur(0px)' }}
+      animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
       exit={leave}
       transition={
         reduceMotion
@@ -121,6 +119,7 @@ export function ArtworkStage({
                 width={artwork.image.width}
                 height={artwork.image.height}
                 alt={artwork.image.alt}
+                draggable={false}
                 loading="eager"
                 fetchPriority="high"
                 onLoad={() => setImageState('ready')}

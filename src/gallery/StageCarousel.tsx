@@ -1,4 +1,9 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
+import {
+  type KeyboardEvent,
+  type PointerEvent,
+  useRef,
+} from 'react';
 
 import { ArtworkStage } from './ArtworkStage';
 import type { Artwork } from './types';
@@ -9,7 +14,21 @@ interface StageCarouselProps {
   positionLabel: string;
   /* 1 when moving forward through the collection, -1 when moving back. */
   direction: number;
+  navigationLabel: string;
+  onPrevious: () => unknown;
+  onNext: () => unknown;
+  onNavigate: (artworkId: string) => unknown;
 }
+
+interface SwipeStart {
+  pointerId: number;
+  x: number;
+  y: number;
+  startedAt: number;
+}
+
+const interactiveSelector =
+  'a, button, input, select, textarea, [contenteditable], [data-no-gallery-swipe]';
 
 interface CarouselPeekProps {
   artwork: Artwork | undefined;
@@ -43,6 +62,7 @@ function CarouselPeek({
           src={artwork.image.src}
           alt=""
           aria-hidden="true"
+          draggable={false}
           decoding="async"
           initial={{ opacity: 0, x: -away }}
           animate={{ opacity: 1, x: 0 }}
@@ -64,18 +84,30 @@ function CarouselProgress({
   artworks,
   currentIndex,
   reduceMotion,
+  navigationLabel,
+  onNavigate,
 }: {
   artworks: readonly Artwork[];
   currentIndex: number;
   reduceMotion: boolean;
+  navigationLabel: string;
+  onNavigate: (artworkId: string) => unknown;
 }) {
   return (
-    <div className="carousel-progress" aria-hidden="true">
+    <div
+      className="carousel-progress"
+      role="group"
+      aria-label={navigationLabel}
+    >
       {artworks.map((artwork, index) => (
-        <span
+        <button
+          type="button"
           key={artwork.id}
           className="carousel-progress-bar"
           data-active={index === currentIndex}
+          aria-label={`${String(index + 1).padStart(2, '0')} / ${String(artworks.length).padStart(2, '0')} · ${artwork.title}`}
+          aria-current={index === currentIndex ? 'true' : undefined}
+          onClick={() => onNavigate(artwork.id)}
         >
           {index === currentIndex ? (
             <motion.span
@@ -88,7 +120,7 @@ function CarouselProgress({
               }
             />
           ) : null}
-        </span>
+        </button>
       ))}
     </div>
   );
@@ -99,8 +131,14 @@ export function StageCarousel({
   currentIndex,
   positionLabel,
   direction,
+  navigationLabel,
+  onPrevious,
+  onNext,
+  onNavigate,
 }: StageCarouselProps) {
   const reduceMotion = useReducedMotion() ?? false;
+  const swipeStart = useRef<SwipeStart | null>(null);
+  const swipeLocked = useRef(false);
   const count = artworks.length;
   const artwork = artworks[currentIndex];
   const previousArtwork = artworks[(currentIndex - 1 + count) % count];
@@ -110,13 +148,94 @@ export function StageCarousel({
     return null;
   }
 
+  const startSwipe = (event: PointerEvent<HTMLDivElement>) => {
+    const target = event.target as Element;
+    if (
+      swipeLocked.current ||
+      !event.isPrimary ||
+      (event.pointerType !== 'touch' && event.pointerType !== 'pen') ||
+      target.closest(interactiveSelector)
+    ) {
+      return;
+    }
+
+    swipeStart.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      startedAt: event.timeStamp,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const cancelSwipe = (event: PointerEvent<HTMLDivElement>) => {
+    if (swipeStart.current?.pointerId === event.pointerId) {
+      swipeStart.current = null;
+    }
+  };
+
+  const finishSwipe = (event: PointerEvent<HTMLDivElement>) => {
+    const start = swipeStart.current;
+    if (!start || start.pointerId !== event.pointerId) {
+      return;
+    }
+
+    swipeStart.current = null;
+    const horizontalTravel = event.clientX - start.x;
+    const verticalTravel = event.clientY - start.y;
+    const horizontalDistance = Math.abs(horizontalTravel);
+    const elapsed = Math.max(1, event.timeStamp - start.startedAt);
+    const requiredDistance = Math.min(
+      96,
+      Math.max(48, event.currentTarget.clientWidth * 0.14),
+    );
+    const isHorizontal =
+      horizontalDistance >= Math.abs(verticalTravel) * 1.25;
+    const isFastFlick =
+      horizontalDistance >= 32 && horizontalDistance / elapsed >= 0.5;
+
+    if (!isHorizontal || (horizontalDistance < requiredDistance && !isFastFlick)) {
+      return;
+    }
+
+    swipeLocked.current = true;
+    if (horizontalTravel < 0) {
+      onNext();
+    } else {
+      onPrevious();
+    }
+  };
+
+  const handleKeyboardNavigation = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      onPrevious();
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      onNext();
+    }
+  };
+
   return (
     <>
       <div
         id="artwork-stage"
         className="stage-carousel"
         data-motion={reduceMotion ? 'reduced' : 'full'}
-        tabIndex={-1}
+        role="region"
+        aria-roledescription="carousel"
+        aria-label={`${navigationLabel}: ${artwork.title}`}
+        aria-keyshortcuts="ArrowLeft ArrowRight"
+        tabIndex={0}
+        onKeyDown={handleKeyboardNavigation}
+        onPointerDown={startSwipe}
+        onPointerCancel={cancelSwipe}
+        onLostPointerCapture={cancelSwipe}
+        onPointerUp={finishSwipe}
       >
         <CarouselPeek
           artwork={previousArtwork}
@@ -124,7 +243,13 @@ export function StageCarousel({
           direction={direction}
           reduceMotion={reduceMotion}
         />
-        <AnimatePresence initial={false} custom={direction}>
+        <AnimatePresence
+          initial={false}
+          custom={direction}
+          onExitComplete={() => {
+            swipeLocked.current = false;
+          }}
+        >
           <ArtworkStage
             key={artwork.id}
             artwork={artwork}
@@ -144,6 +269,8 @@ export function StageCarousel({
         artworks={artworks}
         currentIndex={currentIndex}
         reduceMotion={reduceMotion}
+        navigationLabel={navigationLabel}
+        onNavigate={onNavigate}
       />
     </>
   );

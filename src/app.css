@@ -70,14 +70,15 @@
     --frame-unit: clamp(0.95rem, 3vmin, 3.1rem);
 
     --gutter: clamp(0.35rem, 4vw, 4rem);
-    --arrow-space: clamp(1.5rem, 4vw, 3.4rem);
+    /* Clear edge space for the neighbouring artwork peeks and swipe start. */
+    --stage-edge: clamp(0.75rem, 3vw, 2rem);
     /* Room kept below the frame for the wall label, measured from the
        stage container rather than the whole viewport. */
     --caption-reserve: clamp(7.2rem, 2vw + 5.6rem, 9rem);
     /* Room kept for the Speaking style control below the wall label. */
     --style-reserve: 2.3rem;
     /* Room kept for the six progress bars between the two. */
-    --progress-reserve: 0.85rem;
+    --progress-reserve: 1.5rem;
     /* How much of the neighbouring works the room lets through at the edges. */
     --peek-space: clamp(2.5rem, 8vw, 8rem);
     --speed: 320ms;
@@ -178,18 +179,31 @@
 @layer base {
   html {
     min-width: 20rem;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
     background: var(--wall-deep);
     font-family: var(--body);
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
   }
 
   body {
     min-width: 20rem;
-    min-height: 100vh;
+    width: 100%;
+    height: 100%;
     margin: 0;
+    overflow: hidden;
     color: var(--ink);
     background: var(--wall-deep);
+    overscroll-behavior: none;
+  }
+
+  #root {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
   }
 
   :focus-visible {
@@ -213,8 +227,11 @@
     position: relative;
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) auto;
-    min-height: 100vh;
-    min-height: 100dvh;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
     background: linear-gradient(
       180deg,
       var(--wall-deep) 0%,
@@ -222,6 +239,11 @@
       var(--wall-lit) 62%,
       var(--wall-deep) 100%
     );
+    overscroll-behavior: none;
+    touch-action: pan-y pinch-zoom;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
   /* Motion crossfades one mode's light into the next over the flat wall. */
@@ -366,52 +388,17 @@
     margin-inline: calc(var(--gutter) * -1);
     padding-inline: var(--gutter);
     overflow: hidden;
+    cursor: grab;
+    touch-action: pan-y pinch-zoom;
   }
 
-  .stage-carousel:focus {
+  .stage-carousel:focus:not(:focus-visible) {
     outline: none;
   }
 
   .stage-carousel > .artwork-figure {
     grid-area: 1 / 1;
     align-self: stretch;
-  }
-
-  /* Discreet edge navigation: present, never competing with the painting. */
-  .gallery-nav {
-    position: absolute;
-    z-index: 5;
-    inset-block: 0;
-    inset-inline: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-inline: clamp(0.1rem, 1vw, 0.9rem);
-    pointer-events: none;
-  }
-
-  .nav-arrow {
-    display: grid;
-    place-items: center;
-    width: var(--arrow-space);
-    height: clamp(3.5rem, 9vh, 5.5rem);
-    padding: 0;
-    border: 0;
-    color: var(--ink-quiet);
-    background: none;
-    font-family: var(--display);
-    font-size: clamp(1.8rem, 3.6vw, 3rem);
-    line-height: 1;
-    cursor: pointer;
-    text-shadow: 0 0 0.7rem rgb(5 6 10 / 90%);
-    opacity: 0.7;
-    pointer-events: auto;
-  }
-
-  .nav-arrow:hover,
-  .nav-arrow:focus-visible {
-    color: var(--gilt);
-    opacity: 1;
   }
 
   .artwork-figure {
@@ -455,13 +442,15 @@
     width: auto;
     height: auto;
     max-width: calc(
-      100cqw - var(--frame-unit) * 1.99 - 2 * var(--arrow-space)
+      100cqw - var(--frame-unit) * 1.99 - 2 * var(--stage-edge)
     );
     max-height: calc(
       100cqh - var(--caption-reserve) - var(--style-reserve) -
         var(--progress-reserve) - var(--frame-unit) * 2.06
     );
     box-shadow: inset 0 0 0 1px rgb(0 0 0 / 45%);
+    -webkit-user-drag: none;
+    user-select: none;
   }
 
   .artwork-canvas {
@@ -490,7 +479,7 @@
     gap: 0.6rem;
     width: min(
       28rem,
-      calc(100cqw - var(--frame-unit) * 1.99 - 2 * var(--arrow-space))
+      calc(100cqw - var(--frame-unit) * 1.99 - 2 * var(--stage-edge))
     );
     min-height: min(
       20rem,
@@ -701,6 +690,8 @@
     height: clamp(7rem, 62cqh, 34rem);
     max-width: none;
     filter: blur(0.4rem) saturate(0.55) brightness(0.72);
+    -webkit-user-drag: none;
+    user-select: none;
   }
 
   /* Each sliver fades out towards the edge of the room and at top and
@@ -741,20 +732,35 @@
     gap: 0.3rem;
     align-items: center;
     justify-content: center;
-    height: 0.5rem;
+    height: var(--progress-reserve);
   }
 
   .carousel-progress-bar {
     position: relative;
-    width: clamp(1rem, 2.6vw, 1.75rem);
+    width: clamp(1.5rem, 3vw, 2rem);
+    height: 1.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .carousel-progress-bar::before {
+    position: absolute;
+    inset-block-start: calc(50% - 1px);
+    inset-inline: 0.2rem;
     height: 2px;
     border-radius: 1px;
     background: rgb(242 238 230 / 16%);
+    content: "";
   }
 
   .carousel-progress-fill {
     position: absolute;
-    inset: 0;
+    inset-block-start: calc(50% - 1px);
+    inset-inline: 0.2rem;
+    height: 2px;
     border-radius: 1px;
     background: var(--gilt);
   }
@@ -931,6 +937,8 @@
       ),
       var(--settings-bg);
     overscroll-behavior: contain;
+    touch-action: pan-y pinch-zoom;
+    -webkit-overflow-scrolling: touch;
   }
 
   .settings-panel > * {
@@ -1150,7 +1158,6 @@
   @media (prefers-reduced-motion: no-preference) {
     /* Motion owns every entrance and exit; CSS keeps only hover/focus tint. */
     .gallery,
-    .nav-arrow,
     .settings-cog,
     .style-select-option,
     .settings-done,
@@ -1179,7 +1186,6 @@
       border-color: CanvasText;
     }
 
-    .nav-arrow,
     .settings-cog,
     .settings-close {
       opacity: 1;

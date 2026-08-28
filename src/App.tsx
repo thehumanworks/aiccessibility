@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getArtwork, listArtworks } from './collection/repository';
 import { AccessibilityStatus } from './gallery/AccessibilityStatus';
-import { GalleryNav } from './gallery/GalleryNav';
 import { GalleryProvider, useGallery } from './gallery/GalleryProvider';
 import { getUiCopy, localizeArtwork, localizeRegion } from './gallery/i18n';
 import {
@@ -38,7 +37,7 @@ function GalleryExperience() {
   const currentIndex = artworks.findIndex(({ id }) => id === state.artworkId);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
-  /* Manual arrows and WebMCP navigation both land here, so the carousel
+  /* Manual swipes and WebMCP navigation both land here, so the carousel
      travels the same way whoever moved it. */
   const directionRef = useRef(1);
   const lastIndexRef = useRef(currentIndex);
@@ -134,17 +133,15 @@ function GalleryExperience() {
         </header>
 
         <main className="hall">
-          <GalleryNav
-            artworks={artworks}
-            currentIndex={currentIndex}
-            controller={controller}
-            language={language}
-          />
           <StageCarousel
             artworks={artworks}
             currentIndex={currentIndex}
             positionLabel={`${pad(currentIndex + 1)} / ${pad(artworks.length)}`}
             direction={directionRef.current}
+            navigationLabel={copy.artworkNavigation}
+            onPrevious={controller.goPrevious}
+            onNext={controller.goNext}
+            onNavigate={controller.navigateToArtwork}
           />
           <SpeakingStyleSelect
             mode={state.mode}

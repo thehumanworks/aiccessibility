@@ -145,6 +145,14 @@ async function installRegionToolHarness(page: Page) {
   });
 }
 
+async function navigateArtwork(
+  page: Page,
+  direction: 'next' | 'previous',
+) {
+  await page.locator('#artwork-stage').focus();
+  await page.keyboard.press(direction === 'next' ? 'ArrowRight' : 'ArrowLeft');
+}
+
 test('settings fills the whole viewport on desktop and on mobile', async ({
   page,
 }) => {
@@ -488,7 +496,7 @@ test('the peeks travel with the work and follow the new neighbours', async ({
   await expect(page.locator('.artwork-image')).toBeVisible();
   await page.evaluate(() => window.motionRecorder.reset());
 
-  await page.getByRole('button', { name: /^Next artwork:/ }).click();
+  await navigateArtwork(page, 'next');
   await expect(
     page.getByRole('heading', {
       level: 2,
@@ -523,10 +531,9 @@ test('six fine bars follow the collection, and nothing advances on its own', asy
 
   const bars = page.locator('.carousel-progress-bar');
   await expect(bars).toHaveCount(6);
-  await expect(page.locator('.carousel-progress')).toHaveAttribute(
-    'aria-hidden',
-    'true',
-  );
+  await expect(
+    page.getByRole('group', { name: 'Artwork navigation' }),
+  ).toBeVisible();
   await expect(page.locator('.carousel-progress-fill')).toHaveCount(1);
 
   const activeIndex = () =>
@@ -539,10 +546,11 @@ test('six fine bars follow the collection, and nothing advances on its own', asy
 
   await page.evaluate(() => window.motionRecorder.reset());
   for (const expected of [1, 2, 3, 4, 5, 0]) {
-    await page.getByRole('button', { name: /^Next artwork:/ }).click();
+    await navigateArtwork(page, 'next');
     await expect
       .poll(activeIndex)
       .toBe(expected);
+    await expect(page.locator('.stage-carousel > .artwork-figure')).toHaveCount(1);
   }
 
   // The fill is carried between bars by Motion, not redrawn in place.
@@ -567,7 +575,7 @@ test('previous and next move the painting, frame, and wall label as one', async 
   await expect(page.locator('.artwork-image')).toBeVisible();
   await page.evaluate(() => window.motionRecorder.reset());
 
-  await page.getByRole('button', { name: /^Next artwork:/ }).click();
+  await navigateArtwork(page, 'next');
   await expect(
     page.getByRole('heading', {
       level: 2,
@@ -597,7 +605,7 @@ test('previous and next move the painting, frame, and wall label as one', async 
   await expect(page.locator('.artwork-figure')).toHaveCSS('transform', 'none');
 
   await page.evaluate(() => window.motionRecorder.reset());
-  await page.getByRole('button', { name: /^Previous artwork:/ }).click();
+  await navigateArtwork(page, 'previous');
   await expect(
     page.getByRole('heading', {
       level: 2,
@@ -611,7 +619,7 @@ test('previous and next move the painting, frame, and wall label as one', async 
     .toBeGreaterThanOrEqual(2);
 });
 
-test('a WebMCP navigation animates the same carousel as the arrows', async ({
+test('a WebMCP navigation animates the same carousel as manual navigation', async ({
   page,
 }) => {
   await installRecorder(page);

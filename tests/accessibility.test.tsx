@@ -40,6 +40,18 @@ function chooseStyle(group: HTMLElement, label: string) {
   fireEvent.click(within(group).getByRole('radio', { name: label }));
 }
 
+function artworkStage(): HTMLElement {
+  return screen.getByRole('region', { name: /^Artwork navigation:/ });
+}
+
+function goNextArtwork() {
+  fireEvent.keyDown(artworkStage(), { key: 'ArrowRight' });
+}
+
+function goPreviousArtwork() {
+  fireEvent.keyDown(artworkStage(), { key: 'ArrowLeft' });
+}
+
 describe('accessible gallery', () => {
   it('has no detectable axe violations in the default encounter', async () => {
     const { container } = render(<App />);
@@ -71,7 +83,6 @@ describe('accessible gallery', () => {
   it('walks all six works forward and back through the History API', () => {
     render(<App />);
 
-    const next = screen.getByRole('button', { name: /^Next artwork:/ });
     const expectedTitles = [
       'Young Woman with a Water Pitcher',
       'A Gorge in the Mountains (Kauterskill Clove)',
@@ -82,7 +93,7 @@ describe('accessible gallery', () => {
     ];
 
     expectedTitles.forEach((title, index) => {
-      fireEvent.click(next);
+      goNextArtwork();
       expect(
         screen.getByRole('heading', { level: 2, name: title }),
       ).toBeInTheDocument();
@@ -91,7 +102,7 @@ describe('accessible gallery', () => {
       );
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /^Previous artwork:/ }));
+    goPreviousArtwork();
     expect(
       screen.getByRole('heading', { level: 2, name: 'The Dance Class' }),
     ).toBeInTheDocument();
@@ -102,7 +113,7 @@ describe('accessible gallery', () => {
     render(<App />);
 
     chooseStyle(wallLabelGroup(), 'Poetic');
-    fireEvent.click(screen.getByRole('button', { name: /^Next artwork:/ }));
+    goNextArtwork();
 
     expect(
       screen.getByRole('heading', {
@@ -119,7 +130,7 @@ describe('accessible gallery', () => {
 
   it('responds to History API navigation through the shared state path', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('button', { name: /^Next artwork:/ }));
+    goNextArtwork();
 
     window.history.pushState(null, '', '/?artwork=hokusai-great-wave');
     window.dispatchEvent(new PopStateEvent('popstate'));
@@ -396,7 +407,7 @@ describe('framed carousel', () => {
       '/artworks/vermeer-woman-with-water-pitcher.jpg',
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /^Next artwork:/ }));
+    goNextArtwork();
 
     expect(peekSources('previous')).toContain(
       '/artworks/pissarro-boulevard-montmartre.jpg',
@@ -427,14 +438,14 @@ describe('framed carousel', () => {
     expect(activeIndex()).toBe(0);
 
     for (const expected of [1, 2, 3, 4, 5, 0]) {
-      fireEvent.click(screen.getByRole('button', { name: /^Next artwork:/ }));
+      goNextArtwork();
       expect(activeIndex()).toBe(expected);
       expect(
         document.querySelectorAll('.carousel-progress-bar[data-active="true"]'),
       ).toHaveLength(1);
     }
 
-    fireEvent.click(screen.getByRole('button', { name: /^Previous artwork:/ }));
+    goPreviousArtwork();
     expect(activeIndex()).toBe(5);
   });
 

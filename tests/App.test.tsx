@@ -27,19 +27,19 @@ describe('AIccessibility gallery shell', () => {
     const { container } = render(<App />);
 
     expect(
-      screen.getByRole('navigation', { name: 'Artwork navigation' }),
-    ).toBeInTheDocument();
+      screen.getByRole('region', {
+        name: /^Artwork navigation: The Boulevard Montmartre/,
+      }),
+    ).toHaveAttribute('aria-keyshortcuts', 'ArrowLeft ArrowRight');
     expect(
-      screen.getByRole('button', { name: /^Previous artwork:/ }),
+      screen.getByRole('group', { name: 'Artwork navigation' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /^Next artwork:/ }),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole('navigation')).toBeNull();
+    expect(container.querySelector('.nav-arrow')).toBeNull();
 
     // No persistent panels, cards, or settings blocks in the page flow.
     expect(container.querySelector('aside')).toBeNull();
     expect(container.querySelector('fieldset')).toBeNull();
-    expect(screen.queryByRole('group')).toBeNull();
   });
 
   it('exposes settings only through one compact cog button', () => {
@@ -148,11 +148,16 @@ describe('AIccessibility gallery shell', () => {
     expect(
       [...bars].map((bar) => bar.getAttribute('data-active')),
     ).toEqual(['true', 'false', 'false', 'false', 'false', 'false']);
-    // Repeats the live status region, which already announces the position.
-    expect(container.querySelector('.carousel-progress')).toHaveAttribute(
-      'aria-hidden',
-      'true',
-    );
+    const progress = screen.getByRole('group', {
+      name: 'Artwork navigation',
+    });
+    expect(progress).not.toHaveAttribute('aria-hidden');
+    expect(within(progress).getAllByRole('button')).toHaveLength(6);
+    expect(
+      within(progress).getByRole('button', {
+        name: /01 \/ 06 · The Boulevard Montmartre/,
+      }),
+    ).toHaveAttribute('aria-current', 'true');
   });
 
   it('provides a direct keyboard skip target to the artwork', () => {

@@ -22,7 +22,8 @@ test('opens on one dominant, framed artwork', async ({ page }) => {
   const viewport = page.viewportSize();
   const box = await image.boundingBox();
   expect(box).not.toBeNull();
-  expect(box!.height).toBeGreaterThan(viewport!.height * 0.55);
+  // Leave one CSS pixel of tolerance for platform-specific subpixel rounding.
+  expect(box!.height).toBeGreaterThan(viewport!.height * 0.549);
   expect(box!.width).toBeGreaterThan(viewport!.width * 0.35);
   expect(box!.width * box!.height).toBeGreaterThan(
     viewport!.width * viewport!.height * 0.2,

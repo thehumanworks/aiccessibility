@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 const walk = [
   'Young Woman with a Water Pitcher',
@@ -9,15 +9,46 @@ const walk = [
   'The Boulevard Montmartre on a Winter Morning',
 ];
 
-test('edge arrows walk all six works and share browser history state', async ({
+async function swipeArtwork(page: Page, direction: 'next' | 'previous') {
+  const stage = page.locator('#artwork-stage');
+  const box = await stage.boundingBox();
+  if (!box) {
+    throw new Error('The artwork stage is not visible.');
+  }
+
+  const startX = direction === 'next' ? box.x + box.width * 0.78 : box.x + box.width * 0.22;
+  const endX = direction === 'next' ? box.x + box.width * 0.22 : box.x + box.width * 0.78;
+  const y = box.y + box.height * 0.5;
+  const pointer = {
+    pointerId: 1,
+    pointerType: 'touch',
+    isPrimary: true,
+    button: 0,
+  };
+
+  await stage.dispatchEvent('pointerdown', {
+    ...pointer,
+    clientX: startX,
+    clientY: y,
+  });
+  await stage.dispatchEvent('pointerup', {
+    ...pointer,
+    clientX: endX,
+    clientY: y,
+  });
+}
+
+test('mobile swipes walk all six works and share browser history state', async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
+  await expect(page.locator('.nav-arrow')).toHaveCount(0);
 
-  const next = page.getByRole('button', { name: /^Next artwork:/ });
   for (const title of walk) {
-    await next.click();
+    await swipeArtwork(page, 'next');
     await expect(page.getByRole('heading', { level: 2, name: title })).toBeVisible();
+    await expect(page.locator('.stage-carousel > .artwork-figure')).toHaveCount(1);
   }
 
   await expect(page).toHaveURL(/\?artwork=pissarro-boulevard-montmartre$/);
@@ -27,13 +58,66 @@ test('edge arrows walk all six works and share browser history state', async ({
     page.getByRole('heading', { level: 2, name: 'The Dance Class' }),
   ).toBeVisible();
   await expect(page.getByRole('status')).toContainText('Artwork 6 of 6');
+
+  await page.mouse.wheel(0, 800);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  await expect(page.locator('.gallery')).toHaveCSS('user-select', 'none');
+  await expect(page.locator('.stage-carousel')).toHaveCSS(
+    'touch-action',
+    'pan-y pinch-zoom',
+  );
+});
+
+test('mobile artwork stays vertically pinned throughout a full-motion transition', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await expect(page.locator('.stage-carousel > .artwork-figure')).toHaveCount(1);
+
+  await swipeArtwork(page, 'next');
+  const samples = await page.evaluate(async () => {
+    const points: Array<{ plateBottom: number; labelTop: number }> = [];
+    const deadline = performance.now() + 900;
+
+    while (performance.now() < deadline) {
+      const heading = [...document.querySelectorAll<HTMLHeadingElement>('.artwork-label h2')]
+        .find((element) => element.textContent === 'Young Woman with a Water Pitcher');
+      const figure = heading?.closest('.artwork-figure');
+      const plate = figure?.querySelector('.artwork-plate');
+      const label = figure?.querySelector('.artwork-label');
+      if (plate && label) {
+        points.push({
+          plateBottom: plate.getBoundingClientRect().bottom,
+          labelTop: label.getBoundingClientRect().top,
+        });
+      }
+
+      if (
+        points.length > 8 &&
+        document.querySelectorAll('.stage-carousel > .artwork-figure').length === 1 &&
+        getComputedStyle(figure!).transform === 'none'
+      ) {
+        break;
+      }
+      await new Promise(requestAnimationFrame);
+    }
+    return points;
+  });
+
+  expect(samples.length).toBeGreaterThan(8);
+  const verticalRange = (key: 'plateBottom' | 'labelTop') => {
+    const values = samples.map((sample) => sample[key]);
+    return Math.max(...values) - Math.min(...values);
+  };
+  expect(verticalRange('plateBottom')).toBeLessThanOrEqual(1);
+  expect(verticalRange('labelTop')).toBeLessThanOrEqual(1);
+  await expect(page.locator('.stage-carousel > .artwork-figure')).toHaveCount(1);
 });
 
 test('artwork aspect ratios do not move the label or speaking style', async ({
   page,
 }) => {
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-
   for (const viewport of [
     { width: 802, height: 1245 },
     { width: 390, height: 844 },
@@ -64,10 +148,11 @@ test('artwork aspect ratios do not move the label or speaking style', async ({
       });
 
     const initial = await positions();
-    const next = page.getByRole('button', { name: /^Next artwork:/ });
+    const stage = page.locator('#artwork-stage');
 
     for (const title of walk.slice(0, -1)) {
-      await next.click();
+      await stage.focus();
+      await page.keyboard.press('ArrowRight');
       await expect(
         page.getByRole('heading', { level: 2, name: title }),
       ).toBeVisible();
@@ -159,9 +244,15 @@ test('the wall-label styles answer arrows, Home, End, and the 1-5 number keys', 
   );
 
   // The artwork starts clean: agent-triggered detections do not add dormant
-  // hotspot tab stops before the style group.
+  // hotspot tab stops. The six explicit artwork-position controls come before
+  // the style group in the keyboard order.
   await page.locator('#artwork-stage').focus();
   await page.keyboard.press('Tab');
+  const progress = page.getByRole('group', { name: 'Artwork navigation' });
+  await expect(progress.getByRole('button').first()).toBeFocused();
+  for (let index = 1; index <= 6; index += 1) {
+    await page.keyboard.press('Tab');
+  }
   await expect(option('Literal')).toBeFocused();
   expect(await group.getByRole('radio').evaluateAll((options) =>
     options.filter((element) => element.tabIndex === 0).length,
