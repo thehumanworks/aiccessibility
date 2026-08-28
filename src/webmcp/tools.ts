@@ -65,7 +65,7 @@ export function createGalleryTools(
       name: 'get_gallery_state',
       title: 'Get gallery state',
       description:
-        'Read the artwork, selected speaking style, focused region, interpretation status, collection size, and revision currently shown in the gallery. Call this before answering any request to describe, explain, interpret, or tell the visitor about the current artwork, then shape the response in the returned speaking style rather than giving a generic description.',
+        'Read the artwork, selected speaking style, focused region, interpretation status, collection size, and revision currently shown in the gallery. Call this first whenever the visitor asks about the current view, including “tell me what you see”, “speak what you see”, “describe this”, or equivalent requests. The returned speakingStyle must govern the description’s interpretive tone and structure, but it does not replace your host persona or conversational voice. If focusedRegion is not null, immediately call describe_region with its id and explain that focused view from its mode-specific segments; otherwise explain the whole visible artwork through the returned speakingStyle using the visible page and artwork state.',
       inputSchema: emptyInputSchema,
       annotations: { readOnlyHint: true },
       execute: (input) => {
@@ -89,7 +89,7 @@ export function createGalleryTools(
       name: 'list_artworks',
       title: 'List artworks',
       description:
-        'List the curated artworks and their mood, theme, palette, and subject cues so you can choose a work that fits the visitor’s intent.',
+        'Use when the visitor asks what artworks are available or requests a work by mood, theme, palette, or subject. List the curated choices and their selection cues. If the visitor asks to show the chosen work, immediately follow with navigate_to_artwork using its returned id.',
       inputSchema: listArtworksInputSchema,
       annotations: { readOnlyHint: true },
       execute: (input) => {
@@ -135,7 +135,7 @@ export function createGalleryTools(
       name: 'navigate_to_artwork',
       title: 'Navigate to artwork',
       description:
-        'Show one artwork from the curated collection on the current gallery page. This clears region focus and rendered interpretation while preserving the active mode.',
+        'Use when the visitor asks to show, open, or go to a named gallery artwork. Pass its exact artworkId; call list_artworks first when you do not yet have that id. This changes the current page, clears region focus and rendered interpretation, and preserves the active speaking style.',
       inputSchema: navigateToArtworkInputSchema,
       annotations: { readOnlyHint: false },
       execute: (input, options) => {
@@ -184,7 +184,7 @@ export function createGalleryTools(
       name: 'set_experience_mode',
       title: 'Set experience mode',
       description:
-        'Set the interpretive lens for the current artwork to literal, spatial, poetic, story, or curatorial while preserving the artwork and focused region.',
+        'Use immediately for requests such as “be literal”, “describe the layout”, “make it poetic”, “tell me a story”, or “give me curator context”. Set the page-local speaking style to literal, spatial, poetic, story, or curatorial while preserving the artwork and focused region; this changes the lens for artwork descriptions, not the host assistant’s persona. If the visitor also asks for a description, continue with get_gallery_state so the new style governs it.',
       inputSchema: setExperienceModeInputSchema,
       annotations: { readOnlyHint: false },
       execute: (input, options) => {
@@ -225,7 +225,7 @@ export function createGalleryTools(
       name: 'list_regions',
       title: 'List artwork regions',
       description:
-        'List the authored and accepted local-model regions currently available for the visible artwork. Authored regions are available before any model download.',
+        'Use when the visitor asks what areas, subjects, or details of the visible artwork can be explored. List the authored and accepted local-model regions; authored regions are available before any model download. Pass a returned id to focus_region or describe_region.',
       inputSchema: emptyInputSchema,
       annotations: { readOnlyHint: true },
       execute: (input) => {
@@ -251,7 +251,7 @@ export function createGalleryTools(
       name: 'analyze_artwork_regions',
       title: 'Analyze artwork regions locally',
       description:
-        'With the visitor’s request, lazily download and run browser-local Grounding DINO Tiny and SlimSAM analysis for the current artwork. Candidate labels and model suggestions are navigation aids, not verified museum facts; authored regions remain available on failure.',
+        'Use for a broad request to discover multiple subjects or explorable regions in the current artwork, not for one specific detail; use zoom_to_artwork_detail for a single target. With the visitor’s request, lazily download and run browser-local Grounding DINO Tiny and SlimSAM analysis. Candidate labels and model suggestions are unverified navigation aids, not museum facts; authored regions remain available on failure. Use returned ids with focus_region or describe_region.',
       inputSchema: analyzeArtworkRegionsInputSchema,
       annotations: { readOnlyHint: false },
       execute: async (input, options) => {
@@ -329,7 +329,7 @@ export function createGalleryTools(
       name: 'zoom_to_artwork_detail',
       title: 'Find and zoom to an artwork detail',
       description:
-        'Use this whenever the visitor asks to find, locate, inspect, look closely at, or zoom into a specific visible subject or section of the current painting. Pass the visitor’s natural-language target. The gallery first resolves matching authored detail aliases; otherwise it runs browser-local Grounding DINO Tiny detection on demand with WebGPU when available, refines the best matches with SlimSAM, and immediately zooms the shared page to the strongest accepted match. Model results are visual navigation suggestions, not verified museum facts.',
+        'Use immediately whenever the visitor asks to find, locate, inspect, look closely at, or zoom into one specific visible subject or section of the current painting. Pass the visitor’s natural-language target as query. The gallery first resolves matching authored detail aliases; otherwise it runs browser-local Grounding DINO Tiny detection on demand, refines the best matches with SlimSAM, and zooms the shared page to the strongest accepted match. Model results are unverified visual navigation suggestions, not museum facts. If the visitor also asks what the found detail looks like, follow with describe_region using the returned region id.',
       inputSchema: zoomToArtworkDetailInputSchema,
       annotations: { readOnlyHint: false },
       execute: async (input, options) => {
@@ -406,7 +406,7 @@ export function createGalleryTools(
       name: 'focus_region',
       title: 'Focus artwork region',
       description:
-        'Atomically focus one visible authored or accepted region in the page’s shared zoom, highlight, and semantic gallery state.',
+        'Use when the visitor asks to focus, highlight, or zoom to a region already returned by list_regions or another tool. Pass that exact regionId to update the page’s shared zoom, highlight, and semantic gallery state. For a natural-language target without an id, use zoom_to_artwork_detail instead. If the visitor also asks about the region, follow with describe_region.',
       inputSchema: regionIdInputSchema,
       annotations: { readOnlyHint: false },
       execute: (input, options) => {
@@ -447,7 +447,7 @@ export function createGalleryTools(
       name: 'describe_region',
       title: 'Describe artwork region',
       description:
-        'Describe one visible region using the currently selected speaking style, with observed, known, interpreted, and imagined material clearly labelled.',
+        'Use after get_gallery_state whenever focusedRegion is not null and the visitor asks what they see, what is shown, or for a description of the current view; it can also describe any visible region id the visitor names. Describe that region using the currently selected speaking style, with observed, known, interpreted, and imagined material clearly labelled. The returned mode-specific segments must govern the gallery content and interpretive tone instead of a generic description, while your host persona and conversational voice remain your own.',
       inputSchema: regionIdInputSchema,
       annotations: { readOnlyHint: true },
       execute: (input) => {
@@ -492,7 +492,8 @@ export function createGalleryTools(
     {
       name: 'clear_region_focus',
       title: 'Show whole artwork',
-      description: 'Clear the shared region focus and restore the whole-artwork view.',
+      description:
+        'Use immediately when the visitor asks to zoom out, show the whole artwork, or return to the full view. Clear only the shared region focus; preserve the current artwork and selected speaking style.',
       inputSchema: emptyInputSchema,
       annotations: { readOnlyHint: false },
       execute: (input, options) => {

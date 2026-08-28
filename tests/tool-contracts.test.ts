@@ -245,6 +245,49 @@ describe('WebMCP probe contracts', () => {
     ).toBe(false);
   });
 
+  it('routes ordinary gallery language to the right tool and follow-up', () => {
+    const tools = createGalleryTools(createTestController());
+    const stateDescription = findTool(tools, 'get_gallery_state').description;
+    const regionDescription = findTool(tools, 'describe_region').description;
+
+    expect(stateDescription).toContain('tell me what you see');
+    expect(stateDescription).toContain(
+      'speakingStyle must govern the description’s interpretive tone and structure',
+    );
+    expect(stateDescription).toContain('does not replace your host persona');
+    expect(stateDescription).toContain('focusedRegion is not null');
+    expect(stateDescription).toContain('call describe_region with its id');
+    expect(stateDescription).toContain('otherwise explain the whole visible artwork');
+    expect(findTool(tools, 'list_artworks').description).toContain(
+      'follow with navigate_to_artwork',
+    );
+    expect(findTool(tools, 'navigate_to_artwork').description).toContain(
+      'call list_artworks first',
+    );
+    expect(findTool(tools, 'set_experience_mode').description).toContain(
+      'continue with get_gallery_state',
+    );
+    expect(findTool(tools, 'list_regions').description).toContain(
+      'focus_region or describe_region',
+    );
+    expect(findTool(tools, 'analyze_artwork_regions').description).toContain(
+      'not for one specific detail; use zoom_to_artwork_detail',
+    );
+    expect(findTool(tools, 'zoom_to_artwork_detail').description).toContain(
+      'follow with describe_region',
+    );
+    expect(findTool(tools, 'focus_region').description).toContain(
+      'natural-language target without an id',
+    );
+    expect(regionDescription).toContain('visitor asks what they see');
+    expect(regionDescription).toContain('currently selected speaking style');
+    expect(regionDescription).toContain('mode-specific segments');
+    expect(regionDescription).toContain('host persona');
+    expect(findTool(tools, 'clear_region_focus').description).toContain(
+      'asks to zoom out',
+    );
+  });
+
   it('keeps revision unchanged for both read-only tools', async () => {
     const controller = createTestController();
     const tools = createGalleryTools(controller);
@@ -307,13 +350,22 @@ describe('WebMCP probe contracts', () => {
     expect(controller.getState().focusedRegionId).toBeNull();
   });
 
-  it('describes regions in the selected style with explicit provenance', async () => {
+  it('describes the focused region in the selected style with explicit provenance', async () => {
     const controller = createTestController();
     const tools = createGalleryTools(controller);
     controller.setExperienceMode('story');
+    controller.focusRegion('pissarro-boulevard-flow');
+
+    const stateResult = (await findTool(tools, 'get_gallery_state').execute(
+      {},
+      executionOptions(),
+    )) as SuccessResult;
+    expect(stateResult.state.focusedRegion?.id).toBe(
+      'pissarro-boulevard-flow',
+    );
 
     const result = (await findTool(tools, 'describe_region').execute(
-      { regionId: 'pissarro-boulevard-flow' },
+      { regionId: stateResult.state.focusedRegion?.id },
       executionOptions(),
     )) as SuccessResult;
     expect(result.state.speakingStyle).toEqual({
