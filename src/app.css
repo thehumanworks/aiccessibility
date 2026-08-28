@@ -1,0 +1,944 @@
+@layer reset, tokens, base, gallery, carousel, style-select, settings, utilities;
+
+@layer reset {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  body,
+  h1,
+  h2,
+  h3,
+  p,
+  figure,
+  figcaption,
+  dl,
+  dd,
+  ul {
+    margin: 0;
+  }
+
+  ul {
+    padding: 0;
+    list-style: none;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  dialog {
+    padding: 0;
+    border: 0;
+    color: inherit;
+  }
+}
+
+@layer tokens {
+  :root {
+    color-scheme: dark;
+
+    /* Museum architecture: a deep, cool, evenly lit wall. */
+    --wall-deep: #070810;
+    --wall: #0d101a;
+    --wall-lit: #171b29;
+
+    --ink: #f2eee6;
+    --ink-quiet: #b3ae9e;
+    --ink-faint: #8d8878;
+    --gilt: #d9b573;
+    --focus: #9fdcff;
+
+    --display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
+      ui-serif, serif;
+    --body:
+      ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+    /* Frame geometry, measured from public/frames/renaissance-frame.png:
+       1122 x 1402 with a rectangular opening at 170 / 161 / 168 / 189. */
+    --frame-slice-top: 161;
+    --frame-slice-right: 168;
+    --frame-slice-bottom: 189;
+    --frame-slice-left: 170;
+    --frame-unit: clamp(0.95rem, 3vmin, 3.1rem);
+
+    --gutter: clamp(0.35rem, 4vw, 4rem);
+    --arrow-space: clamp(1.5rem, 4vw, 3.4rem);
+    /* Room kept below the frame for the wall label, measured from the
+       stage container rather than the whole viewport. */
+    --caption-reserve: clamp(7.2rem, 2vw + 5.6rem, 9rem);
+    /* Room kept for the Speaking style control below the wall label. */
+    --style-reserve: 2.3rem;
+    /* Room kept for the six progress bars between the two. */
+    --progress-reserve: 0.85rem;
+    /* How much of the neighbouring works the room lets through at the edges. */
+    --peek-space: clamp(2.5rem, 8vw, 8rem);
+    --speed: 320ms;
+    --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@layer base {
+  html {
+    min-width: 20rem;
+    background: var(--wall-deep);
+    font-family: var(--body);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-width: 20rem;
+    min-height: 100vh;
+    margin: 0;
+    color: var(--ink);
+    background: var(--wall-deep);
+  }
+
+  :focus-visible {
+    outline: 0.15rem solid var(--focus);
+    outline-offset: 0.3rem;
+  }
+
+  ::selection {
+    color: var(--wall-deep);
+    background: var(--gilt);
+  }
+
+  a {
+    color: var(--gilt);
+    text-underline-offset: 0.2em;
+  }
+}
+
+@layer gallery {
+  .gallery {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: linear-gradient(
+      180deg,
+      var(--wall-deep) 0%,
+      var(--wall) 34%,
+      var(--wall-lit) 62%,
+      var(--wall-deep) 100%
+    );
+  }
+
+  /* Motion crossfades one mode's light into the next over the flat wall. */
+  .mode-atmosphere {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .masthead,
+  .hall,
+  .gallery-status {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Modes shift the light in the room, never the artwork. */
+  .gallery[data-mode="spatial"] {
+    --wall: #0b1219;
+    --wall-lit: #14212a;
+    --gilt: #b9d6de;
+  }
+
+  .gallery[data-mode="poetic"] {
+    --wall: #140f1c;
+    --wall-lit: #221a2e;
+    --gilt: #e6b6d0;
+  }
+
+  .gallery[data-mode="story"] {
+    --wall: #151009;
+    --wall-lit: #251a10;
+    --gilt: #eab77c;
+  }
+
+  .gallery[data-mode="curatorial"] {
+    --wall: #0a1412;
+    --wall-lit: #12201c;
+    --gilt: #b4d8c0;
+  }
+
+  .skip-link {
+    position: fixed;
+    z-index: 40;
+    inset-block-start: 0;
+    inset-inline-start: 50%;
+    padding: 0.7rem 1.2rem;
+    color: #06070c;
+    background: var(--focus);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-decoration: none;
+    transform: translate(-50%, -160%);
+  }
+
+  .skip-link:focus {
+    transform: translate(-50%, 0);
+  }
+
+  .masthead {
+    display: grid;
+    justify-items: center;
+    gap: 0.35rem;
+    padding: clamp(1.1rem, 3vh, 2.1rem) max(var(--gutter), 3.6rem) 0;
+    text-align: center;
+  }
+
+  .wordmark {
+    font-family: var(--display);
+    font-size: clamp(0.95rem, 1.5vw, 1.2rem);
+    font-weight: 400;
+    letter-spacing: 0.42em;
+    text-indent: 0.42em;
+    text-transform: uppercase;
+  }
+
+  .wordmark-lead {
+    color: var(--gilt);
+  }
+
+  .tagline {
+    color: var(--ink-faint);
+    font-size: clamp(0.62rem, 1vw, 0.72rem);
+    letter-spacing: 0.24em;
+    text-indent: 0.24em;
+    text-transform: uppercase;
+  }
+
+  .settings-cog {
+    position: fixed;
+    z-index: 30;
+    inset-block-start: clamp(0.8rem, 2.4vh, 1.6rem);
+    inset-inline-end: clamp(0.8rem, 2.4vw, 1.8rem);
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--ink-quiet);
+    background: none;
+    cursor: pointer;
+  }
+
+  .settings-cog svg {
+    width: 1.35rem;
+    height: 1.35rem;
+  }
+
+  .settings-cog:hover,
+  .settings-cog:focus-visible {
+    color: var(--gilt);
+  }
+
+  .hall {
+    position: relative;
+    container-type: size;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    justify-items: center;
+    /* The art slot absorbs aspect-ratio differences. The label, progress,
+       and style control therefore keep one baseline for every work. */
+    align-content: stretch;
+    gap: clamp(0.3rem, 0.9vh, 0.6rem);
+    min-height: 0;
+    padding: clamp(0.75rem, 2vh, 2rem) var(--gutter);
+  }
+
+  /* One cell holds every slide, so an outgoing work cannot shift the page.
+     The cell also crops the carousel: whatever travels past its edges is
+     the neighbouring wall, not a scrollbar. */
+  .stage-carousel {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: calc(100% + var(--gutter) * 2);
+    min-width: 0;
+    min-height: 0;
+    margin-inline: calc(var(--gutter) * -1);
+    padding-inline: var(--gutter);
+    overflow: hidden;
+  }
+
+  .stage-carousel:focus {
+    outline: none;
+  }
+
+  .stage-carousel > .artwork-figure {
+    grid-area: 1 / 1;
+    align-self: stretch;
+  }
+
+  /* Discreet edge navigation: present, never competing with the painting. */
+  .gallery-nav {
+    position: absolute;
+    z-index: 5;
+    inset-block: 0;
+    inset-inline: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-inline: clamp(0.1rem, 1vw, 0.9rem);
+    pointer-events: none;
+  }
+
+  .nav-arrow {
+    display: grid;
+    place-items: center;
+    width: var(--arrow-space);
+    height: clamp(3.5rem, 9vh, 5.5rem);
+    padding: 0;
+    border: 0;
+    color: var(--ink-quiet);
+    background: none;
+    font-family: var(--display);
+    font-size: clamp(1.8rem, 3.6vw, 3rem);
+    line-height: 1;
+    cursor: pointer;
+    text-shadow: 0 0 0.7rem rgb(5 6 10 / 90%);
+    opacity: 0.7;
+    pointer-events: auto;
+  }
+
+  .nav-arrow:hover,
+  .nav-arrow:focus-visible {
+    color: var(--gilt);
+    opacity: 1;
+  }
+
+  .artwork-figure {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) var(--caption-reserve);
+    justify-items: center;
+    gap: clamp(0.7rem, 1.8vh, 1.6rem);
+    height: 100%;
+    max-width: 100%;
+  }
+
+  .artwork-figure:focus {
+    outline: none;
+  }
+
+  /* Nine-slice Renaissance frame. The middle is never filled, so the
+     painting itself is untouched at any aspect ratio. */
+  .artwork-plate {
+    display: block;
+    align-self: end;
+    width: fit-content;
+    max-width: 100%;
+    border-style: solid;
+    border-color: transparent;
+    border-width:
+      calc(var(--frame-unit) * 0.947) calc(var(--frame-unit) * 0.988)
+      calc(var(--frame-unit) * 1.112) var(--frame-unit);
+    border-image-source: url("/frames/renaissance-frame.png");
+    border-image-slice: var(--frame-slice-top) var(--frame-slice-right)
+      var(--frame-slice-bottom) var(--frame-slice-left);
+    border-image-width: 1;
+    border-image-repeat: round;
+    background: #05060a;
+    background-clip: padding-box;
+    filter: drop-shadow(0 1.6rem 2.4rem rgb(0 0 0 / 55%));
+  }
+
+  .artwork-image {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: calc(
+      100cqw - var(--frame-unit) * 1.99 - 2 * var(--arrow-space)
+    );
+    max-height: calc(
+      100cqh - var(--caption-reserve) - var(--style-reserve) -
+        var(--progress-reserve) - var(--frame-unit) * 2.06
+    );
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 45%);
+  }
+
+  .artwork-fallback {
+    display: grid;
+    align-content: center;
+    gap: 0.6rem;
+    width: min(
+      28rem,
+      calc(100cqw - var(--frame-unit) * 1.99 - 2 * var(--arrow-space))
+    );
+    min-height: min(
+      20rem,
+      calc(
+        100cqh - var(--caption-reserve) - var(--style-reserve) -
+          var(--progress-reserve) - var(--frame-unit) * 2.06
+      )
+    );
+    padding: clamp(1rem, 4vw, 2.5rem);
+    color: var(--ink-quiet);
+    text-align: center;
+  }
+
+  .artwork-fallback-title {
+    color: var(--ink);
+    font-family: var(--display);
+    font-size: 1.35rem;
+  }
+
+  .artwork-label {
+    display: grid;
+    align-self: start;
+    gap: 0.3rem;
+    max-width: min(46rem, 100%);
+    text-align: center;
+  }
+
+  .artwork-label h2 {
+    font-family: var(--display);
+    font-size: clamp(1.15rem, 2.6vw, 2.05rem);
+    font-weight: 400;
+    letter-spacing: -0.005em;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+
+  .artwork-byline {
+    color: var(--ink-quiet);
+    font-size: clamp(0.78rem, 1.4vw, 0.92rem);
+    letter-spacing: 0.05em;
+  }
+
+  .artwork-year {
+    color: var(--ink-faint);
+  }
+
+  .artwork-fineprint {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1.1rem;
+    justify-content: center;
+    margin-block-start: 0.25rem;
+    color: var(--ink-faint);
+    font-size: clamp(0.6rem, 1vw, 0.7rem);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .artwork-position {
+    color: var(--gilt);
+    opacity: 0.85;
+  }
+
+  .gallery-status {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@layer carousel {
+  /* Slivers of the works either side. Blurred, dimmed, and masked so they
+     read as the rest of the wall rather than as a second painting. */
+  .carousel-peek {
+    position: absolute;
+    z-index: 1;
+    inset-block: 0;
+    width: var(--peek-space);
+    /* The dimming lives here: Motion owns the image's own opacity. */
+    overflow: hidden;
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
+  .carousel-peek[data-side="previous"] {
+    inset-inline-start: 0;
+  }
+
+  .carousel-peek[data-side="next"] {
+    inset-inline-end: 0;
+  }
+
+  .carousel-peek-image {
+    position: absolute;
+    /* Motion owns `transform`, so the vertical centring uses `translate`.
+       The centre is the painting's, not the wall label's. */
+    inset-block-start: calc((100% - var(--caption-reserve)) / 2);
+    translate: 0 -50%;
+    width: auto;
+    height: clamp(7rem, 62cqh, 34rem);
+    max-width: none;
+    filter: blur(0.4rem) saturate(0.55) brightness(0.72);
+  }
+
+  /* Each sliver fades out towards the edge of the room and at top and
+     bottom, so nothing ends on a hard cut. */
+  .carousel-peek[data-side="previous"] .carousel-peek-image {
+    inset-inline-end: 0;
+    mask-image:
+      linear-gradient(to right, transparent 0%, #000 55%),
+      linear-gradient(
+        to bottom,
+        transparent 0%,
+        #000 14%,
+        #000 86%,
+        transparent 100%
+      );
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
+  .carousel-peek[data-side="next"] .carousel-peek-image {
+    inset-inline-start: 0;
+    mask-image:
+      linear-gradient(to left, transparent 0%, #000 55%),
+      linear-gradient(
+        to bottom,
+        transparent 0%,
+        #000 14%,
+        #000 86%,
+        transparent 100%
+      );
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
+  /* Where you are in the collection. Six bars, no timer. */
+  .carousel-progress {
+    display: flex;
+    gap: 0.3rem;
+    align-items: center;
+    justify-content: center;
+    height: 0.5rem;
+  }
+
+  .carousel-progress-bar {
+    position: relative;
+    width: clamp(1rem, 2.6vw, 1.75rem);
+    height: 2px;
+    border-radius: 1px;
+    background: rgb(242 238 230 / 16%);
+  }
+
+  .carousel-progress-fill {
+    position: absolute;
+    inset: 0;
+    border-radius: 1px;
+    background: var(--gilt);
+  }
+}
+
+@layer style-select {
+  /* Under the wall label the control is one quiet line, so the painting keeps
+     the height it had before the styles were on show. */
+  .style-select {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.6rem;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+  }
+
+  .style-select-label {
+    color: var(--ink-faint);
+    font-size: clamp(0.6rem, 1vw, 0.7rem);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .style-select-track {
+    position: relative;
+    display: flex;
+    gap: 0.1rem;
+    align-items: center;
+    padding: 0.14rem;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 4%);
+  }
+
+  .style-select-option {
+    position: relative;
+    display: inline-flex;
+    gap: 0.32em;
+    align-items: baseline;
+    padding: 0.2rem 0.62rem;
+    border: 0;
+    border-radius: 999px;
+    color: var(--ink-faint);
+    background: none;
+    font-size: clamp(0.72rem, 1.25vw, 0.85rem);
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+
+  .style-select-option:hover {
+    color: var(--ink);
+  }
+
+  .style-select-option[data-selected="true"] {
+    color: var(--wall-deep);
+  }
+
+  /* The one moving part: Motion carries this pill from style to style. */
+  .style-select-pill {
+    position: absolute;
+    inset: 0;
+    border-radius: 999px;
+    background: var(--gilt);
+  }
+
+  /* Positioned, so both sit above the absolutely positioned pill in DOM
+     order rather than behind it. */
+  .style-select-index,
+  .style-select-name {
+    position: relative;
+  }
+
+  .style-select-index {
+    font-size: 0.75em;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
+    opacity: 0.7;
+  }
+
+  .style-select-option[data-selected="true"] .style-select-index {
+    opacity: 0.65;
+  }
+
+  .style-select-hint {
+    color: var(--ink-faint);
+    font-size: 0.75rem;
+  }
+
+  /* Under the wall label the numbers are already on show, so the sentence is
+     left to assistive technology instead of adding chrome. */
+  .style-select[data-variant="label"] .style-select-hint {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .style-select[data-variant="settings"] {
+    display: grid;
+    gap: 0.4rem;
+    /* Reset the wall-label centring: in settings the column starts at the
+       same left edge as the surrounding prose. */
+    justify-content: start;
+    justify-items: start;
+    margin-block-start: 0.35rem;
+  }
+
+  .style-select[data-variant="settings"] .style-select-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: none;
+  }
+
+  .style-select[data-variant="settings"] .style-select-track {
+    flex-wrap: wrap;
+    max-width: 100%;
+    padding: 0.2rem;
+    border-radius: 1.1rem;
+  }
+
+  .style-select[data-variant="settings"] .style-select-option {
+    padding: 0.42rem 0.85rem;
+    font-size: 0.95rem;
+  }
+
+  .style-select-description {
+    color: var(--ink-quiet);
+    font-size: 0.85rem;
+  }
+}
+
+@layer settings {
+  /* Settings is a room of its own: the full viewport, at every width. */
+  .settings-dialog {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    color: var(--ink);
+    background: none;
+    overscroll-behavior: contain;
+  }
+
+  /* The panel itself is the scrim, so Motion can fade the whole room. */
+  .settings-dialog::backdrop {
+    background: transparent;
+  }
+
+  .settings-panel {
+    display: grid;
+    align-content: start;
+    gap: clamp(0.9rem, 2.2vw, 1.35rem);
+    width: 100%;
+    height: 100%;
+    padding: clamp(1.25rem, 4vw, 2.6rem) max(var(--gutter), 1.25rem);
+    overflow: auto;
+    background:
+      radial-gradient(
+        ellipse 90% 45% at 50% 0%,
+        rgb(217 181 115 / 8%),
+        transparent 70%
+      ),
+      #0b0d15;
+    overscroll-behavior: contain;
+  }
+
+  .settings-panel > * {
+    width: min(38rem, 100%);
+    margin-inline: auto;
+  }
+
+  .settings-masthead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .settings-masthead h2 {
+    font-family: var(--display);
+    font-size: clamp(1.35rem, 3vw, 1.85rem);
+    font-weight: 400;
+  }
+
+  .settings-masthead h2:focus {
+    outline: none;
+  }
+
+  .settings-close {
+    display: grid;
+    place-items: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--ink-quiet);
+    background: none;
+    font-size: 1.6rem;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .settings-close:hover,
+  .settings-close:focus-visible {
+    color: var(--gilt);
+  }
+
+  .settings-section {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .settings-section h3 {
+    color: var(--gilt);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+
+  .settings-section p {
+    color: var(--ink-quiet);
+    font-size: 0.86rem;
+    line-height: 1.45;
+  }
+
+  .provenance-list {
+    display: grid;
+    gap: 0.3rem;
+  }
+
+  .provenance-item {
+    display: grid;
+    grid-template-columns: minmax(6rem, auto) minmax(0, 1fr);
+    gap: 0.2rem 1rem;
+  }
+
+  .provenance-item dt {
+    color: var(--ink);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+
+  .provenance-item dd {
+    margin: 0;
+    color: var(--ink-quiet);
+    font-size: 0.8rem;
+  }
+
+  .settings-signal {
+    display: flex;
+    align-items: baseline;
+    gap: 0.55rem;
+  }
+
+  .settings-dot {
+    flex: 0 0 auto;
+    width: 0.5rem;
+    height: 0.5rem;
+    border: 1px solid var(--ink-faint);
+    border-radius: 50%;
+  }
+
+  .settings-dot[data-supported="true"] {
+    border-color: var(--gilt);
+    background: var(--gilt);
+  }
+
+  .settings-section p.settings-fine {
+    color: var(--ink-faint);
+    font-size: 0.78rem;
+  }
+
+  .settings-done {
+    justify-self: start;
+    padding: 0.55rem 1.15rem;
+    border: 1px solid rgb(242 238 230 / 24%);
+    border-radius: 999px;
+    background: none;
+    font-size: 0.8rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .settings-done:hover,
+  .settings-done:focus-visible {
+    border-color: var(--gilt);
+    color: var(--gilt);
+  }
+}
+
+@layer utilities {
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 34rem) {
+    :root {
+      --gutter: 0.5rem;
+      /* Narrow screens are width-bound, so extra label room is free. */
+      --caption-reserve: 10.5rem;
+      /* Only a restrained sliver: the active painting keeps the room. */
+      --peek-space: 1.4rem;
+    }
+
+    .carousel-peek {
+      opacity: 0.4;
+    }
+
+    .tagline {
+      display: none;
+    }
+
+    .artwork-label {
+      padding-inline: 0.75rem;
+    }
+
+    .style-select-option {
+      padding-inline: 0.5rem;
+      font-size: 0.7rem;
+    }
+
+    .provenance-item {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    /* Motion owns every entrance and exit; CSS keeps only hover/focus tint. */
+    .gallery,
+    .nav-arrow,
+    .settings-cog,
+    .style-select-option,
+    .settings-done,
+    .settings-close {
+      transition:
+        color var(--speed) var(--ease),
+        background-color var(--speed) var(--ease),
+        border-color var(--speed) var(--ease),
+        opacity var(--speed) var(--ease);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .artwork-plate {
+      border-color: CanvasText;
+    }
+
+    .nav-arrow,
+    .settings-cog,
+    .settings-close {
+      opacity: 1;
+    }
+
+    .style-select-track,
+    .style-select-option[data-selected="true"],
+    .carousel-progress-bar {
+      border: 1px solid CanvasText;
+    }
+
+    .style-select-pill,
+    .carousel-progress-fill {
+      background: Highlight;
+    }
+
+    .carousel-peek {
+      display: none;
+    }
+
+    .settings-panel {
+      outline: 1px solid CanvasText;
+    }
+  }
+}
