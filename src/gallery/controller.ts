@@ -1,11 +1,48 @@
-import { listArtworks } from '../collection/repository';
+import { getArtwork, listArtworks } from '../collection/repository';
 import { pushArtworkToHistory } from './history';
 import type { GalleryAction } from './reducer';
 import type { GalleryState } from './types';
+import type { ArtworkRegion } from './types';
+
+export interface RegionAnalysisProgress {
+  phase: 'loading' | 'analyzing';
+  progress: number;
+  message: string;
+  backend?: 'webgpu' | 'wasm';
+}
+
+export interface RegionAnalysisRequest {
+  artworkId: GalleryState['artworkId'];
+  imageUrl: string;
+  imageWidth: number;
+  imageHeight: number;
+  labels: readonly string[];
+  threshold: number;
+  maxRegions: number;
+  signal?: AbortSignal;
+  onProgress: (progress: RegionAnalysisProgress) => void;
+}
+
+export interface RegionAnalysisResult {
+  regions: readonly ArtworkRegion[];
+  backend: 'webgpu' | 'wasm';
+}
+
+export type RegionAnalysisRunner = (
+  request: RegionAnalysisRequest,
+) => Promise<RegionAnalysisResult>;
+
+export interface AnalyzeArtworkRegionOptions {
+  labels?: readonly string[];
+  threshold?: number;
+  maxRegions?: number;
+  signal?: AbortSignal;
+}
 
 interface GalleryControllerDependencies {
   getState: () => GalleryState;
   applyAction: (action: GalleryAction) => GalleryState;
+  runRegionAnalysis?: RegionAnalysisRunner;
 }
 
 export interface GalleryController {
@@ -17,11 +54,15 @@ export interface GalleryController {
   setExperienceMode: (mode: string) => GalleryState;
   focusRegion: (regionId: string) => GalleryState;
   clearRegionFocus: () => GalleryState;
+  analyzeArtworkRegions: (
+    options?: AnalyzeArtworkRegionOptions,
+  ) => Promise<GalleryState>;
 }
 
 export function createGalleryController({
   getState,
   applyAction,
+  runRegionAnalysis,
 }: GalleryControllerDependencies): GalleryController {
   const navigate = (artworkId: string, writeHistory: boolean) => {
     const previousState = getState();
@@ -48,6 +89,64 @@ export function createGalleryController({
     return artwork ? navigate(artwork.id, true) : getState();
   };
 
+  const analyzeArtworkRegions = async (
+    options: AnalyzeArtworkRegionOptions = {},
+  ) => {
+    const artworkId = getState().artworkId;
+    const artwork = getArtwork(artworkId);
+    const labels = (options.labels ?? artwork.discovery.subjects)
+      .map((label) => label.trim())
+      .filter(Boolean)
+      .slice(0, 12);
+
+    if (!runRegionAnalysis) {
+      return applyAction({
+        type: 'region-analysis-failed',
+        artworkId,
+        message: 'Local analysis is unavailable. Authored regions remain ready.',
+        error: 'Region analysis worker is unavailable.',
+      });
+    }
+
+    try {
+      const result = await runRegionAnalysis({
+        artworkId,
+        imageUrl: artwork.image.src,
+        imageWidth: artwork.image.width,
+        imageHeight: artwork.image.height,
+        labels,
+        threshold: options.threshold ?? 0.2,
+        maxRegions: options.maxRegions ?? 8,
+        ...(options.signal ? { signal: options.signal } : {}),
+        onProgress: (progress) => {
+          applyAction({
+            type: 'region-analysis-progress',
+            artworkId,
+            ...progress,
+          });
+        },
+      });
+      return applyAction({
+        type: 'region-analysis-complete',
+        artworkId,
+        regions: result.regions,
+        backend: result.backend,
+        message: `Local analysis complete. ${result.regions.length} model suggestion${result.regions.length === 1 ? '' : 's'} accepted for exploration.`,
+      });
+    } catch (error) {
+      const message =
+        error instanceof DOMException && error.name === 'AbortError'
+          ? 'Local analysis was cancelled. Authored regions remain ready.'
+          : 'Local analysis could not finish. Authored regions remain ready.';
+      return applyAction({
+        type: 'region-analysis-failed',
+        artworkId,
+        message,
+        error: error instanceof Error ? error.message : 'Unknown analysis error.',
+      });
+    }
+  };
+
   return {
     getState,
     navigateToArtwork: (artworkId) => navigate(artworkId, true),
@@ -58,5 +157,6 @@ export function createGalleryController({
     focusRegion: (regionId) =>
       applyAction({ type: 'focus-region', regionId }),
     clearRegionFocus: () => applyAction({ type: 'clear-focus' }),
+    analyzeArtworkRegions,
   };
 }

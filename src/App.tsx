@@ -5,6 +5,7 @@ import { getArtwork, listArtworks } from './collection/repository';
 import { AccessibilityStatus } from './gallery/AccessibilityStatus';
 import { GalleryNav } from './gallery/GalleryNav';
 import { GalleryProvider, useGallery } from './gallery/GalleryProvider';
+import { getCurrentRegionAnalysis, getVisibleRegions } from './gallery/regions';
 import { modeAtmospheres } from './gallery/modes';
 import { SettingsDialog } from './gallery/SettingsDialog';
 import { SpeakingStyleSelect } from './gallery/SpeakingStyleSelect';
@@ -116,6 +117,8 @@ function GalleryExperience() {
           focusedRegionId={state.focusedRegionId}
           currentIndex={currentIndex}
           collectionSize={artworks.length}
+          regionAnalysis={getCurrentRegionAnalysis(state)}
+          availableRegionCount={getVisibleRegions(state).length}
         />
       </div>
 

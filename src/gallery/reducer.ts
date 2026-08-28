@@ -1,9 +1,11 @@
 import { artworks } from '../collection/artworks';
-import { getRegion, isArtworkId } from '../collection/repository';
+import { isArtworkId } from '../collection/repository';
+import { getVisibleRegion, idleRegionAnalysis } from './regions';
 import type {
   ArtworkId,
   ExperienceMode,
   GalleryState,
+  ArtworkRegion,
   RegionId,
   RenderedInterpretation,
 } from './types';
@@ -23,6 +25,27 @@ export type GalleryAction =
   | { type: 'set-mode'; mode: string }
   | { type: 'focus-region'; regionId: string }
   | { type: 'clear-focus' }
+  | {
+      type: 'region-analysis-progress';
+      artworkId: ArtworkId;
+      phase: 'loading' | 'analyzing';
+      progress: number;
+      message: string;
+      backend?: 'webgpu' | 'wasm';
+    }
+  | {
+      type: 'region-analysis-complete';
+      artworkId: ArtworkId;
+      regions: readonly ArtworkRegion[];
+      message: string;
+      backend: 'webgpu' | 'wasm';
+    }
+  | {
+      type: 'region-analysis-failed';
+      artworkId: ArtworkId;
+      message: string;
+      error: string;
+    }
   | { type: 'render-interpretation'; interpretation: RenderedInterpretation }
   | { type: 'clear-interpretation' };
 
@@ -38,6 +61,10 @@ export function createInitialGalleryState(
     mode: 'literal',
     focusedRegionId: null,
     interpretation: null,
+    acceptedModelRegions: {},
+    regionAnalysis: Object.fromEntries(
+      artworks.map((artwork) => [artwork.id, { ...idleRegionAnalysis }]),
+    ) as GalleryState['regionAnalysis'],
     revision: 0,
   };
 }
@@ -86,7 +113,7 @@ export function galleryReducer(
       };
 
     case 'focus-region': {
-      const region = getRegion(state.artworkId, action.regionId as RegionId);
+      const region = getVisibleRegion(state, action.regionId as RegionId);
       if (!region || region.id === state.focusedRegionId) {
         return state;
       }
@@ -98,6 +125,70 @@ export function galleryReducer(
       };
     }
 
+    case 'region-analysis-progress': {
+      if (!isArtworkId(action.artworkId)) {
+        return state;
+      }
+      const previous = state.regionAnalysis[action.artworkId];
+      const next = {
+        phase: action.phase,
+        progress: Math.max(0, Math.min(1, action.progress)),
+        message: action.message,
+        backend: action.backend ?? previous?.backend ?? 'authored',
+        error: null,
+      } as const;
+      return {
+        ...state,
+        regionAnalysis: { ...state.regionAnalysis, [action.artworkId]: next },
+        revision: incrementRevision(state),
+      };
+    }
+
+    case 'region-analysis-complete':
+      if (!isArtworkId(action.artworkId)) {
+        return state;
+      }
+      return {
+        ...state,
+        acceptedModelRegions: {
+          ...state.acceptedModelRegions,
+          [action.artworkId]: action.regions,
+        },
+        regionAnalysis: {
+          ...state.regionAnalysis,
+          [action.artworkId]: {
+            phase: 'complete',
+            progress: 1,
+            message: action.message,
+            backend: action.backend,
+            error: null,
+          },
+        },
+        revision: incrementRevision(state),
+      };
+
+    case 'region-analysis-failed':
+      if (!isArtworkId(action.artworkId)) {
+        return state;
+      }
+      return {
+        ...state,
+        acceptedModelRegions: {
+          ...state.acceptedModelRegions,
+          [action.artworkId]: [],
+        },
+        regionAnalysis: {
+          ...state.regionAnalysis,
+          [action.artworkId]: {
+            phase: 'failed',
+            progress: 0,
+            message: action.message,
+            backend: 'authored',
+            error: action.error,
+          },
+        },
+        revision: incrementRevision(state),
+      };
     case 'clear-focus':
       if (state.focusedRegionId === null) {
         return state;

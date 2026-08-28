@@ -13,6 +13,7 @@ import { App } from '../src/App';
 import {
   createGalleryController,
   type GalleryController,
+  type RegionAnalysisRunner,
 } from '../src/gallery/controller';
 import {
   createInitialGalleryState,
@@ -27,10 +28,19 @@ interface SuccessResult {
   state: {
     artwork: { id: string; title: string };
     mode: string;
+    speakingStyle: { label: string; instruction: string };
+    focusedRegion?: { id: string; provenance: string } | null;
+    availableRegionCount?: number;
+    regionAnalysis?: { phase: string; backend: string };
     revision: number;
     collectionSize: number;
   };
   artworks?: Array<{ id: string }>;
+  regions?: Array<{ id: string; provenance: string }>;
+  description?: {
+    mode: string;
+    segments: Array<{ provenance: string; text: string }>;
+  };
 }
 
 interface ErrorResult {
@@ -63,7 +73,9 @@ class FakeModelContext extends EventTarget implements WebMCP.ModelContext {
   }
 }
 
-function createTestController(): GalleryController {
+function createTestController(
+  runRegionAnalysis?: RegionAnalysisRunner,
+): GalleryController {
   let state = createInitialGalleryState();
   return createGalleryController({
     getState: () => state,
@@ -71,6 +83,7 @@ function createTestController(): GalleryController {
       state = galleryReducer(state, action);
       return state;
     },
+    ...(runRegionAnalysis ? { runRegionAnalysis } : {}),
   });
 }
 
@@ -95,7 +108,7 @@ afterEach(() => {
 });
 
 describe('WebMCP probe contracts', () => {
-  it('detects support and registers exactly four top-level tools with cleanup', async () => {
+  it('detects support and registers the gallery and region tools with cleanup', async () => {
     const modelContext = new FakeModelContext();
     Object.defineProperty(document, 'modelContext', {
       configurable: true,
@@ -111,6 +124,11 @@ describe('WebMCP probe contracts', () => {
       'list_artworks',
       'navigate_to_artwork',
       'set_experience_mode',
+      'list_regions',
+      'analyze_artwork_regions',
+      'focus_region',
+      'describe_region',
+      'clear_region_focus',
     ]);
 
     registration.unregister();
@@ -138,6 +156,14 @@ describe('WebMCP probe contracts', () => {
     expect(
       findTool(tools, 'set_experience_mode').annotations?.readOnlyHint,
     ).toBe(false);
+    expect(findTool(tools, 'list_regions').annotations?.readOnlyHint).toBe(true);
+    expect(findTool(tools, 'describe_region').annotations?.readOnlyHint).toBe(
+      true,
+    );
+    expect(findTool(tools, 'focus_region').annotations?.readOnlyHint).toBe(false);
+    expect(
+      findTool(tools, 'analyze_artwork_regions').annotations?.readOnlyHint,
+    ).toBe(false);
   });
 
   it('keeps revision unchanged for both read-only tools', async () => {
@@ -164,8 +190,138 @@ describe('WebMCP probe contracts', () => {
       'degas-dance-class',
     ]);
     expect(stateResult.state.collectionSize).toBe(6);
+    expect(stateResult.state.speakingStyle).toEqual({
+      label: 'Literal',
+      instruction: 'Concrete visual detail, without invented meaning.',
+    });
     expect(listResult.state.revision).toBe(0);
     expect(controller.getState()).toBe(before);
+  });
+
+  it('lists authored regions immediately and shares focus with the live state', async () => {
+    const controller = createTestController();
+    const tools = createGalleryTools(controller);
+
+    const listing = (await findTool(tools, 'list_regions').execute(
+      {},
+      executionOptions(),
+    )) as SuccessResult;
+    expect(listing.regions).toHaveLength(3);
+    expect(listing.regions?.every(({ provenance }) => provenance === 'authored')).toBe(
+      true,
+    );
+
+    const focused = (await findTool(tools, 'focus_region').execute(
+      { regionId: 'pissarro-left-tree' },
+      executionOptions(),
+    )) as SuccessResult;
+    expect(focused.state).toMatchObject({
+      focusedRegion: {
+        id: 'pissarro-left-tree',
+        provenance: 'authored',
+      },
+      availableRegionCount: 3,
+    });
+    expect(controller.getState().focusedRegionId).toBe('pissarro-left-tree');
+
+    await findTool(tools, 'clear_region_focus').execute({}, executionOptions());
+    expect(controller.getState().focusedRegionId).toBeNull();
+  });
+
+  it('describes regions in the selected style with explicit provenance', async () => {
+    const controller = createTestController();
+    const tools = createGalleryTools(controller);
+    controller.setExperienceMode('story');
+
+    const result = (await findTool(tools, 'describe_region').execute(
+      { regionId: 'pissarro-boulevard-flow' },
+      executionOptions(),
+    )) as SuccessResult;
+    expect(result.state.speakingStyle).toEqual({
+      label: 'Story',
+      instruction: 'A narrative inspired by the work, not its history.',
+    });
+    expect(result.description?.mode).toBe('story');
+    expect(result.description?.segments.map(({ provenance }) => provenance)).toEqual([
+      'observed',
+      'imagined',
+    ]);
+  });
+
+  it('rejects stale region ids after navigation', async () => {
+    const controller = createTestController();
+    const tools = createGalleryTools(controller);
+    controller.navigateToArtwork('degas-dance-class');
+
+    const result = (await findTool(tools, 'focus_region').execute(
+      { regionId: 'pissarro-left-tree' },
+      executionOptions(),
+    )) as ErrorResult;
+    expect(result.error.code).toBe('UNKNOWN_OR_STALE_REGION');
+    expect(controller.getState().focusedRegionId).toBeNull();
+  });
+
+  it('accepts only normalized model results and exposes analysis state', async () => {
+    const runner: RegionAnalysisRunner = async ({ onProgress }) => {
+      onProgress({
+        phase: 'loading',
+        progress: 0.4,
+        message: 'Downloading local models.',
+        backend: 'webgpu',
+      });
+      return {
+        backend: 'webgpu',
+        regions: [
+          {
+            id: 'pissarro-boulevard-montmartre--model--red-omnibus-a1b2',
+            label: 'red omnibus',
+            description: 'A local model suggests a red omnibus in this area.',
+            bounds: { x: 0.42, y: 0.51, width: 0.14, height: 0.18 },
+            confidence: 0.82,
+            provenance: 'model-detected',
+            model: {
+              detector: 'onnx-community/owlv2-base-patch16-ensemble-ONNX',
+              detectorRevision: 'test-revision',
+              backend: 'webgpu',
+            },
+          },
+        ],
+      };
+    };
+    const controller = createTestController(runner);
+    const result = (await findTool(
+      createGalleryTools(controller),
+      'analyze_artwork_regions',
+    ).execute({ labels: ['red omnibus'] }, executionOptions())) as SuccessResult;
+
+    expect(result.ok).toBe(true);
+    expect(result.regions).toHaveLength(4);
+    expect(result.state).toMatchObject({
+      availableRegionCount: 4,
+      regionAnalysis: { phase: 'complete', backend: 'webgpu' },
+    });
+  });
+
+  it('keeps authored fallback and returns a recoverable model error', async () => {
+    const controller = createTestController(async () => {
+      throw new Error('Mocked operator failure');
+    });
+    const tools = createGalleryTools(controller);
+    const result = (await findTool(tools, 'analyze_artwork_regions').execute(
+      {},
+      executionOptions(),
+    )) as ErrorResult;
+
+    expect(result.error.code).toBe('LOCAL_ANALYSIS_FAILED');
+    expect(controller.getState().regionAnalysis[controller.getState().artworkId]).toMatchObject({
+      phase: 'failed',
+      backend: 'authored',
+    });
+    const listing = (await findTool(tools, 'list_regions').execute(
+      {},
+      executionOptions(),
+    )) as SuccessResult;
+    expect(listing.regions).toHaveLength(3);
   });
 
   it('returns recoverable errors and never changes state for invalid calls', async () => {
@@ -231,7 +387,7 @@ describe('WebMCP probe contracts', () => {
     const modeResult = (await findTool(
       tools,
       'set_experience_mode',
-    ).execute({ mode: 'poetic' })) as SuccessResult;
+    ).execute({ mode: 'story' })) as SuccessResult;
     const navigationResult = (await findTool(
       tools,
       'navigate_to_artwork',
@@ -239,19 +395,26 @@ describe('WebMCP probe contracts', () => {
 
     expect(modeResult).toMatchObject({
       ok: true,
-      state: { mode: 'poetic', revision: 1 },
+      state: {
+        mode: 'story',
+        speakingStyle: {
+          label: 'Story',
+          instruction: 'A narrative inspired by the work, not its history.',
+        },
+        revision: 1,
+      },
     });
     expect(navigationResult).toMatchObject({
       ok: true,
       state: {
         artwork: { id: 'hokusai-great-wave' },
-        mode: 'poetic',
+        mode: 'story',
         revision: 2,
       },
     });
     expect(controller.getState()).toMatchObject({
       artworkId: 'hokusai-great-wave',
-      mode: 'poetic',
+      mode: 'story',
       revision: 2,
     });
   });
@@ -264,7 +427,7 @@ describe('WebMCP probe contracts', () => {
     });
 
     const { unmount } = render(createElement(App));
-    await waitFor(() => expect(modelContext.tools).toHaveLength(4));
+    await waitFor(() => expect(modelContext.tools).toHaveLength(9));
 
     await act(async () => {
       await findTool(modelContext.tools, 'set_experience_mode').execute(
@@ -289,7 +452,7 @@ describe('WebMCP probe contracts', () => {
       'story',
     );
     expect(window.location.search).toBe('?artwork=hokusai-great-wave');
-    expect(modelContext.tools).toHaveLength(4);
+    expect(modelContext.tools).toHaveLength(9);
 
     // The tool-set mode is the chosen option of the wall-label control.
     const checkedStyle = (group: HTMLElement) =>

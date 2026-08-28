@@ -3,11 +3,15 @@ import { expect, test } from '@playwright/test';
 interface BrowserToolResult {
   ok: boolean;
   artworks?: Array<{ id: string }>;
+  regions?: Array<{ id: string; provenance: string }>;
+  description?: { mode: string };
   state: {
     artwork: { id: string };
     mode: string;
     revision: number;
     collectionSize: number;
+    focusedRegion?: { id: string } | null;
+    availableRegionCount?: number;
   };
 }
 
@@ -77,6 +81,11 @@ test('registered tools mutate the visible gallery and remain available', async (
       'list_artworks',
       'navigate_to_artwork',
       'set_experience_mode',
+      'list_regions',
+      'analyze_artwork_regions',
+      'focus_region',
+      'describe_region',
+      'clear_region_focus',
     ]);
 
   const listing = await page.evaluate(() =>
@@ -90,6 +99,36 @@ test('registered tools mutate the visible gallery and remain available', async (
     'hokusai-great-wave',
     'degas-dance-class',
   ]);
+
+  const regions = await page.evaluate(() =>
+    window.galleryToolHarness.execute('list_regions', {}),
+  );
+  expect(regions.regions).toHaveLength(3);
+  expect(regions.regions?.every(({ provenance }) => provenance === 'authored')).toBe(
+    true,
+  );
+
+  const focused = await page.evaluate(() =>
+    window.galleryToolHarness.execute('focus_region', {
+      regionId: 'pissarro-left-tree',
+    }),
+  );
+  await expect(page.locator('.artwork-canvas')).toHaveAttribute(
+    'data-focused-region',
+    'pissarro-left-tree',
+  );
+  await expect(page.getByRole('status')).toContainText(
+    'Focused on The near winter tree.',
+  );
+  expect(focused.state.focusedRegion?.id).toBe('pissarro-left-tree');
+
+  await page.evaluate(() =>
+    window.galleryToolHarness.execute('clear_region_focus', {}),
+  );
+  await expect(page.locator('.artwork-canvas')).toHaveAttribute(
+    'data-focused-region',
+    '',
+  );
 
   await page.evaluate(() =>
     window.galleryToolHarness.execute('set_experience_mode', { mode: 'story' }),
@@ -129,12 +168,12 @@ test('registered tools mutate the visible gallery and remain available', async (
     state: {
       artwork: { id: 'gifford-kauterskill-clove' },
       mode: 'story',
-      revision: 2,
+      revision: 4,
       collectionSize: 6,
     },
   });
   expect(await page.evaluate(() => window.galleryToolHarness.names())).toHaveLength(
-    4,
+    9,
   );
 
   // The settings copy of the shared select agrees with the tool result.
@@ -147,7 +186,7 @@ test('registered tools mutate the visible gallery and remain available', async (
   ).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape');
   expect(await page.evaluate(() => window.galleryToolHarness.names())).toHaveLength(
-    4,
+    9,
   );
 });
 

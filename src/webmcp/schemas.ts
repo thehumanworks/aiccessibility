@@ -46,6 +46,45 @@ export const setExperienceModeInputSchema = {
   additionalProperties: false,
 } as const;
 
+export const regionIdInputSchema = {
+  type: 'object',
+  properties: {
+    regionId: {
+      type: 'string',
+      minLength: 1,
+      description: 'Stable id of an authored or accepted region returned by list_regions.',
+    },
+  },
+  required: ['regionId'],
+  additionalProperties: false,
+} as const;
+
+export const analyzeArtworkRegionsInputSchema = {
+  type: 'object',
+  properties: {
+    labels: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 12,
+      items: { type: 'string', minLength: 1, maxLength: 80 },
+      description: 'Optional concrete subjects to look for locally in the current artwork.',
+    },
+    threshold: {
+      type: 'number',
+      minimum: 0.05,
+      maximum: 0.9,
+      description: 'Minimum detector confidence. Defaults to 0.2.',
+    },
+    maxRegions: {
+      type: 'integer',
+      minimum: 1,
+      maximum: 12,
+      description: 'Maximum accepted model suggestions. Defaults to 8.',
+    },
+  },
+  additionalProperties: false,
+} as const;
+
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

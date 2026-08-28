@@ -6,7 +6,7 @@ export type ArtworkId =
   | 'gifford-kauterskill-clove'
   | 'hokusai-great-wave';
 
-export type RegionId =
+export type AuthoredRegionId =
   | 'pissarro-boulevard-flow'
   | 'pissarro-left-tree'
   | 'pissarro-right-facades'
@@ -25,6 +25,9 @@ export type RegionId =
   | 'hokusai-breaking-wave'
   | 'hokusai-mount-fuji'
   | 'hokusai-oarsmen';
+
+/** Authored ids and stable ids assigned to accepted local-model regions. */
+export type RegionId = AuthoredRegionId | (string & {});
 
 export type ExperienceMode =
   | 'literal'
@@ -51,6 +54,8 @@ export interface GalleryState {
   mode: ExperienceMode;
   focusedRegionId: RegionId | null;
   interpretation: RenderedInterpretation | null;
+  acceptedModelRegions: Partial<Record<ArtworkId, readonly ArtworkRegion[]>>;
+  regionAnalysis: Record<ArtworkId, RegionAnalysisState>;
   revision: number;
 }
 
@@ -80,16 +85,52 @@ export interface SourcedStatement extends GroundedStatement {
   sourceIds: string[];
 }
 
+export interface RegionBounds {
+  /** Normalized to the displayed source image, from 0 through 1. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface RegionModelMetadata {
+  detector: string;
+  detectorRevision: string;
+  refiner?: string;
+  refinerRevision?: string;
+  backend: 'webgpu' | 'wasm';
+}
+
+export interface CompactRegionMask {
+  /** A browser-safe normalized outline, never raw model tensors or bitmap data. */
+  encoding: 'polygon';
+  points: readonly number[];
+}
+
 export interface ArtworkRegion {
   id: RegionId;
   label: string;
   description: string;
-  bounds: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
+  bounds: RegionBounds;
+  confidence?: number;
+  provenance?: 'authored' | 'model-detected';
+  model?: RegionModelMetadata;
+  mask?: CompactRegionMask;
+}
+
+export type RegionAnalysisPhase =
+  | 'idle'
+  | 'loading'
+  | 'analyzing'
+  | 'complete'
+  | 'failed';
+
+export interface RegionAnalysisState {
+  phase: RegionAnalysisPhase;
+  progress: number;
+  message: string;
+  backend: 'webgpu' | 'wasm' | 'authored';
+  error: string | null;
 }
 
 export interface Artwork {

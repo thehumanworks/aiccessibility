@@ -1,7 +1,10 @@
 import { motion, useReducedMotion } from 'motion/react';
-import { useState } from 'react';
+import { type CSSProperties, useState } from 'react';
 
+import { getVisibleRegion } from './regions';
+import { RegionExplorer, RegionOverlay } from './RegionExplorer';
 import type { Artwork } from './types';
+import { useGallery } from './GalleryProvider';
 
 type ImageState = 'loading' | 'ready' | 'error';
 
@@ -18,11 +21,25 @@ export function ArtworkStage({
   direction,
 }: ArtworkStageProps) {
   const [imageState, setImageState] = useState<ImageState>('loading');
+  const { state } = useGallery();
   const reduceMotion = useReducedMotion();
   const firstObservation = artwork.observed[0]?.text;
   const orientation =
     artwork.image.width >= artwork.image.height ? 'landscape' : 'portrait';
   const titleId = `artwork-title-${artwork.id}`;
+  const focusedRegion = state.focusedRegionId
+    ? getVisibleRegion(state, state.focusedRegionId)
+    : undefined;
+  const zoomScale = focusedRegion
+    ? Math.min(2.6, Math.max(1.35, 0.82 / Math.max(focusedRegion.bounds.width, focusedRegion.bounds.height)))
+    : 1;
+  const zoomStyle = focusedRegion
+    ? ({
+        '--focus-x': `${(focusedRegion.bounds.x + focusedRegion.bounds.width / 2) * 100}%`,
+        '--focus-y': `${(focusedRegion.bounds.y + focusedRegion.bounds.height / 2) * 100}%`,
+        '--focus-scale': String(zoomScale),
+      } as CSSProperties)
+    : undefined;
 
   /* One encounter moves as one thing: frame, painting, and wall label
      together, resolving from the blurred edge of the carousel into the
@@ -73,18 +90,28 @@ export function ArtworkStage({
             </p>
           </div>
         ) : (
-          <img
-            className="artwork-image"
-            src={artwork.image.src}
-            width={artwork.image.width}
-            height={artwork.image.height}
-            alt={artwork.image.alt}
-            loading="eager"
-            fetchPriority="high"
-            onLoad={() => setImageState('ready')}
-            onError={() => setImageState('error')}
-          />
+          <div
+            className="artwork-canvas"
+            data-focused-region={focusedRegion?.id ?? ''}
+            data-motion={reduceMotion ? 'reduced' : 'full'}
+          >
+            <div className="artwork-zoom-surface" style={zoomStyle}>
+              <img
+                className="artwork-image"
+                src={artwork.image.src}
+                width={artwork.image.width}
+                height={artwork.image.height}
+                alt={artwork.image.alt}
+                loading="eager"
+                fetchPriority="high"
+                onLoad={() => setImageState('ready')}
+                onError={() => setImageState('error')}
+              />
+              <RegionOverlay />
+            </div>
+          </div>
         )}
+        <RegionExplorer />
       </div>
 
       <figcaption className="artwork-label">

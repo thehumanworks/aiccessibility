@@ -229,6 +229,37 @@ test('reduced motion collapses the settings and style animations', async ({
   await expect(page.locator('.artwork-figure')).toHaveCSS('transform', 'none');
 });
 
+test('reduced motion makes region zoom immediate while preserving focus', async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('/');
+
+  const canvas = page.locator('.artwork-canvas');
+  const surface = page.locator('.artwork-zoom-surface');
+  await page
+    .getByRole('button', { name: 'Focus region: The near winter tree' })
+    .click();
+
+  await expect(canvas).toHaveAttribute('data-motion', 'reduced');
+  await expect(canvas).toHaveAttribute(
+    'data-focused-region',
+    'pissarro-left-tree',
+  );
+  expect(
+    await surface.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).transitionDuration),
+    ),
+  ).toBeLessThan(0.001);
+  await expect(surface).toHaveCSS(
+    'transform',
+    'matrix(1.35, 0, 0, 1.35, 0, 0)',
+  );
+  await expect(page.getByRole('status')).toContainText(
+    'Focused on The near winter tree.',
+  );
+});
+
 test('the Speaking style pill travels with a Motion layout animation', async ({
   page,
 }) => {

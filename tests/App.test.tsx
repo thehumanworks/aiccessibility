@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 
 import { App } from '../src/App';
 
@@ -162,5 +162,36 @@ describe('AIccessibility gallery shell', () => {
       screen.getByRole('link', { name: 'Skip to the artwork' }),
     ).toHaveAttribute('href', '#artwork-stage');
     expect(document.getElementById('artwork-stage')).not.toBeNull();
+  });
+
+  it('offers authored region focus before any optional model download', () => {
+    const { container } = render(<App />);
+
+    expect(
+      screen.getByRole('button', { name: 'Analyze regions locally' }),
+    ).toBeVisible();
+    expect(
+      screen.getAllByRole('button', { name: /^Focus region:/ }),
+    ).toHaveLength(3);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Focus region: The near winter tree' }),
+    );
+    expect(container.querySelector('.artwork-canvas')).toHaveAttribute(
+      'data-focused-region',
+      'pissarro-left-tree',
+    );
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Focused on The near winter tree.',
+    );
+    expect(
+      screen.getByRole('button', { name: 'Show whole artwork' }),
+    ).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show whole artwork' }));
+    expect(container.querySelector('.artwork-canvas')).toHaveAttribute(
+      'data-focused-region',
+      '',
+    );
   });
 });

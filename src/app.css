@@ -1,4 +1,4 @@
-@layer reset, tokens, base, gallery, carousel, style-select, settings, utilities;
+@layer reset, tokens, base, gallery, regions, carousel, style-select, settings, utilities;
 
 @layer reset {
   *,
@@ -336,6 +336,7 @@
   /* Nine-slice Renaissance frame. The middle is never filled, so the
      painting itself is untouched at any aspect ratio. */
   .artwork-plate {
+    position: relative;
     display: block;
     align-self: end;
     width: fit-content;
@@ -367,6 +368,22 @@
         var(--progress-reserve) - var(--frame-unit) * 2.06
     );
     box-shadow: inset 0 0 0 1px rgb(0 0 0 / 45%);
+  }
+
+  .artwork-canvas {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .artwork-zoom-surface {
+    position: relative;
+    display: grid;
+    transform: scale(var(--focus-scale, 1));
+    transform-origin: var(--focus-x, 50%) var(--focus-y, 50%);
+  }
+
+  .artwork-zoom-surface > * {
+    grid-area: 1 / 1;
   }
 
   .artwork-fallback {
@@ -447,6 +464,161 @@
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
+  }
+}
+
+@layer regions {
+  .region-overlay {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .region-hotspot {
+    position: absolute;
+    z-index: 2;
+    inset-block-start: var(--region-y);
+    inset-inline-start: var(--region-x);
+    width: var(--region-width);
+    height: var(--region-height);
+    padding: 0;
+    border: 1px solid rgb(217 181 115 / 72%);
+    border-radius: 0.18rem;
+    background: rgb(8 10 16 / 10%);
+    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 22%);
+    cursor: zoom-in;
+    opacity: 0.52;
+    pointer-events: auto;
+  }
+
+  .region-hotspot[data-provenance="model-detected"] {
+    border-style: dashed;
+    border-color: rgb(159 220 255 / 82%);
+  }
+
+  .region-hotspot:hover,
+  .region-hotspot:focus-visible,
+  .region-hotspot[aria-pressed="true"] {
+    background: rgb(217 181 115 / 16%);
+    opacity: 1;
+  }
+
+  .region-hotspot[aria-pressed="true"] {
+    cursor: zoom-out;
+    box-shadow:
+      inset 0 0 0 2px rgb(242 238 230 / 85%),
+      0 0 1.2rem rgb(159 220 255 / 55%);
+  }
+
+  .region-hotspot-label {
+    position: absolute;
+    inset-block-start: 0.25rem;
+    inset-inline-start: 0.25rem;
+    max-width: calc(100% - 0.5rem);
+    padding: 0.18rem 0.35rem;
+    overflow: hidden;
+    color: #080a10;
+    background: rgb(242 238 230 / 92%);
+    font-size: clamp(0.46rem, 0.8vw, 0.62rem);
+    font-weight: 700;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    opacity: 0;
+  }
+
+  .region-hotspot:hover .region-hotspot-label,
+  .region-hotspot:focus-visible .region-hotspot-label,
+  .region-hotspot[aria-pressed="true"] .region-hotspot-label {
+    opacity: 1;
+  }
+
+  .region-mask {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    background: rgb(159 220 255 / 16%);
+    pointer-events: none;
+  }
+
+  .region-explorer {
+    position: absolute;
+    z-index: 4;
+    inset-inline: 0;
+    inset-block-end: 0;
+    display: grid;
+    justify-items: center;
+    gap: 0.2rem;
+    padding: 0.45rem 0.55rem 0.35rem;
+    color: var(--ink-faint);
+    background: linear-gradient(0deg, rgb(5 6 10 / 92%), rgb(5 6 10 / 58%) 72%, transparent);
+    font-size: 0.62rem;
+    line-height: 1.35;
+  }
+
+  .region-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.35rem;
+  }
+
+  .region-action {
+    padding: 0.28rem 0.58rem;
+    border: 1px solid rgb(217 181 115 / 46%);
+    border-radius: 999px;
+    color: var(--ink-quiet);
+    background: rgb(7 8 16 / 42%);
+    font-size: 0.66rem;
+    cursor: pointer;
+  }
+
+  .region-action:hover,
+  .region-action:focus-visible {
+    color: var(--ink);
+    border-color: var(--gilt);
+  }
+
+  .region-action:disabled {
+    cursor: default;
+    opacity: 0.45;
+  }
+
+  .region-privacy-note,
+  .region-focus-caption {
+    max-width: min(42rem, 94vw);
+    text-wrap: balance;
+  }
+
+  .region-focus-caption {
+    color: var(--ink-quiet);
+  }
+
+  .region-count {
+    position: absolute;
+    inset-inline-end: 0.55rem;
+    inset-block-start: 0.7rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .artwork-zoom-surface {
+      transition: transform 360ms var(--ease);
+    }
+
+    .region-hotspot,
+    .region-hotspot-label,
+    .region-action {
+      transition:
+        opacity var(--speed) var(--ease),
+        color var(--speed) var(--ease),
+        background-color var(--speed) var(--ease),
+        border-color var(--speed) var(--ease);
+    }
   }
 }
 

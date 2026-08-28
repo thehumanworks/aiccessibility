@@ -11,6 +11,7 @@ import {
 } from 'react';
 
 import { registerGalleryTools } from '../webmcp/register';
+import { createGalleryRegionAnalysisRunner } from '../regions/gallery-runner';
 import { createGalleryController, type GalleryController } from './controller';
 import { readArtworkIdFromLocation } from './history';
 import {
@@ -35,6 +36,7 @@ function initializeGallery(): GalleryState {
 export function GalleryProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(galleryReducer, undefined, initializeGallery);
   const [siteToolsSupported, setSiteToolsSupported] = useState(false);
+  const regionAnalysis = useMemo(() => createGalleryRegionAnalysisRunner(), []);
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -49,9 +51,16 @@ export function GalleryProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const controller = useMemo(
-    () => createGalleryController({ getState, applyAction }),
-    [applyAction, getState],
+    () =>
+      createGalleryController({
+        getState,
+        applyAction,
+        runRegionAnalysis: regionAnalysis.runner,
+      }),
+    [applyAction, getState, regionAnalysis.runner],
   );
+
+  useEffect(() => () => regionAnalysis.dispose(), [regionAnalysis]);
 
   useEffect(() => {
     const registration = registerGalleryTools(controller);

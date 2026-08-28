@@ -28,13 +28,19 @@ function exploredState(): GalleryState {
 
 describe('galleryReducer', () => {
   it('starts with a defined, literal, whole-artwork state', () => {
-    expect(createInitialGalleryState()).toEqual({
+    expect(createInitialGalleryState()).toMatchObject({
       artworkId: 'pissarro-boulevard-montmartre',
       mode: 'literal',
       focusedRegionId: null,
       interpretation: null,
+      acceptedModelRegions: {},
       revision: 0,
     });
+    expect(
+      createInitialGalleryState().regionAnalysis[
+        'pissarro-boulevard-montmartre'
+      ],
+    ).toMatchObject({ phase: 'idle', backend: 'authored', progress: 0 });
   });
 
   it('navigation clears focus and interpretation while preserving mode', () => {

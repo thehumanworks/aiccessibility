@@ -1,17 +1,31 @@
-import { getArtwork, getRegion, listArtworks } from '../collection/repository';
+import { getArtwork, listArtworks } from '../collection/repository';
+import { modeDefinitions } from '../gallery/modes';
+import {
+  getCurrentRegionAnalysis,
+  getVisibleRegion,
+  getVisibleRegions,
+} from '../gallery/regions';
 import type { GalleryState } from '../gallery/types';
 
 export type GalleryToolAction =
   | 'get_gallery_state'
   | 'list_artworks'
   | 'navigate_to_artwork'
-  | 'set_experience_mode';
+  | 'set_experience_mode'
+  | 'list_regions'
+  | 'analyze_artwork_regions'
+  | 'focus_region'
+  | 'describe_region'
+  | 'clear_region_focus';
 
 export function buildGalleryState(state: GalleryState) {
   const artwork = getArtwork(state.artworkId);
+  const speakingStyle = modeDefinitions[state.mode];
+  const visibleRegions = getVisibleRegions(state);
   const focusedRegion = state.focusedRegionId
-    ? getRegion(state.artworkId, state.focusedRegionId)
+    ? getVisibleRegion(state, state.focusedRegionId)
     : undefined;
+  const regionAnalysis = getCurrentRegionAnalysis(state);
 
   return {
     artwork: {
@@ -21,9 +35,24 @@ export function buildGalleryState(state: GalleryState) {
       year: artwork.yearLabel,
     },
     mode: state.mode,
+    speakingStyle: {
+      label: speakingStyle.label,
+      instruction: speakingStyle.description,
+    },
     focusedRegion: focusedRegion
-      ? { id: focusedRegion.id, label: focusedRegion.label }
+      ? {
+          id: focusedRegion.id,
+          label: focusedRegion.label,
+          provenance: focusedRegion.provenance ?? 'authored',
+        }
       : null,
+    availableRegionCount: visibleRegions.length,
+    regionAnalysis: {
+      phase: regionAnalysis.phase,
+      progress: regionAnalysis.progress,
+      backend: regionAnalysis.backend,
+      message: regionAnalysis.message,
+    },
     hasInterpretation: state.interpretation !== null,
     collectionSize: listArtworks().length,
     revision: state.revision,
