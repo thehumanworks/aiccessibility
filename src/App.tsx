@@ -1,10 +1,11 @@
 import { AnimatePresence, motion, MotionConfig } from 'motion/react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getArtwork, listArtworks } from './collection/repository';
 import { AccessibilityStatus } from './gallery/AccessibilityStatus';
 import { GalleryNav } from './gallery/GalleryNav';
 import { GalleryProvider, useGallery } from './gallery/GalleryProvider';
+import { getUiCopy, localizeArtwork, localizeRegion } from './gallery/i18n';
 import {
   getCurrentRegionAnalysis,
   getVisibleRegion,
@@ -24,10 +25,15 @@ function GalleryExperience() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
 
-  const artworks = listArtworks();
-  const artwork = getArtwork(state.artworkId);
+  const language = state.personalization.language;
+  const copy = getUiCopy(language);
+  const artworks = useMemo(
+    () => listArtworks().map((artwork) => localizeArtwork(artwork, language)),
+    [language],
+  );
+  const artwork = localizeArtwork(getArtwork(state.artworkId), language);
   const focusedRegion = state.focusedRegionId
-    ? getVisibleRegion(state, state.focusedRegionId)
+    ? localizeRegion(getVisibleRegion(state, state.focusedRegionId)!, language)
     : undefined;
   const currentIndex = artworks.findIndex(({ id }) => id === state.artworkId);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
@@ -43,6 +49,34 @@ function GalleryExperience() {
     lastIndexRef.current = currentIndex;
   }
   const atmosphere = modeAtmospheres[state.mode];
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = {
+      fontFamily: root.dataset.fontFamily,
+      fontSize: root.dataset.fontSize,
+      contrast: root.dataset.contrast,
+      theme: root.dataset.theme,
+      lang: root.lang,
+    };
+    root.dataset.fontFamily = state.personalization.fontFamily;
+    root.dataset.fontSize = state.personalization.fontSize;
+    root.dataset.contrast = state.personalization.contrast;
+    root.dataset.theme = state.personalization.theme;
+    root.lang = language;
+
+    return () => {
+      for (const [key, value] of Object.entries(previous)) {
+        if (key === 'lang') {
+          root.lang = value ?? 'en';
+        } else if (value === undefined) {
+          delete root.dataset[key];
+        } else {
+          root.dataset[key] = value;
+        }
+      }
+    };
+  }, [language, state.personalization]);
 
   return (
     <>
@@ -64,21 +98,21 @@ function GalleryExperience() {
         </AnimatePresence>
 
         <a className="skip-link" href="#artwork-stage">
-          Skip to the artwork
+          {copy.skipToArtwork}
         </a>
 
         <header className="masthead">
           <h1 className="wordmark">
             <span className="wordmark-lead">AI</span>ccessibility
           </h1>
-          <p className="tagline">One gallery · many ways of seeing</p>
+          <p className="tagline">{copy.tagline}</p>
           <button
             type="button"
             className="settings-cog"
             ref={settingsButtonRef}
             aria-haspopup="dialog"
             aria-expanded={settingsOpen}
-            aria-label="Gallery settings"
+            aria-label={copy.gallerySettings}
             onClick={() => setSettingsOpen(true)}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -104,6 +138,7 @@ function GalleryExperience() {
             artworks={artworks}
             currentIndex={currentIndex}
             controller={controller}
+            language={language}
           />
           <StageCarousel
             artworks={artworks}
@@ -113,6 +148,7 @@ function GalleryExperience() {
           />
           <SpeakingStyleSelect
             mode={state.mode}
+            language={language}
             controller={controller}
             variant="label"
           />
@@ -126,6 +162,7 @@ function GalleryExperience() {
           collectionSize={artworks.length}
           regionAnalysis={getCurrentRegionAnalysis(state)}
           availableRegionCount={getVisibleRegions(state).length}
+          language={language}
         />
       </div>
 
@@ -133,6 +170,7 @@ function GalleryExperience() {
         open={settingsOpen}
         onClose={closeSettings}
         mode={state.mode}
+        preferences={state.personalization}
         controller={controller}
         siteToolsSupported={siteToolsSupported}
         returnFocusTo={settingsButtonRef}

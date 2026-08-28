@@ -38,6 +38,20 @@ export type ExperienceMode =
 
 export type ProvenanceKind = 'observed' | 'known' | 'interpreted' | 'imagined';
 
+export type FontFamily = 'atkinson' | 'sans' | 'serif' | 'mono';
+export type FontSize = 'small' | 'medium' | 'large' | 'extra-large';
+export type ContrastLevel = 'soft' | 'standard' | 'high';
+export type ColorTheme = 'light' | 'dark';
+export type GalleryLanguage = 'en' | 'es' | 'fr';
+
+export interface PersonalizationPreferences {
+  fontFamily: FontFamily;
+  fontSize: FontSize;
+  contrast: ContrastLevel;
+  theme: ColorTheme;
+  language: GalleryLanguage;
+}
+
 export interface InterpretationSegment {
   provenance: ProvenanceKind;
   text: string;
@@ -52,8 +66,10 @@ export interface RenderedInterpretation {
 export interface GalleryState {
   artworkId: ArtworkId;
   mode: ExperienceMode;
+  personalization: PersonalizationPreferences;
   focusedRegionId: RegionId | null;
   interpretation: RenderedInterpretation | null;
+  agentGroundedRegions: Partial<Record<ArtworkId, readonly ArtworkRegion[]>>;
   acceptedModelRegions: Partial<Record<ArtworkId, readonly ArtworkRegion[]>>;
   regionAnalysis: Record<ArtworkId, RegionAnalysisState>;
   revision: number;
@@ -116,7 +132,7 @@ export interface ArtworkRegion {
   /** Natural-language phrases that can resolve directly to an authored region. */
   queryAliases?: readonly string[];
   confidence?: number;
-  provenance?: 'authored' | 'model-detected';
+  provenance?: 'authored' | 'agent-grounded' | 'model-detected';
   model?: RegionModelMetadata;
   mask?: CompactRegionMask;
 }

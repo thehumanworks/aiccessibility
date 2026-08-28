@@ -1,5 +1,9 @@
 import { getArtwork, listArtworks } from '../collection/repository';
-import { modeDefinitions } from '../gallery/modes';
+import {
+  getModeDefinition,
+  localizeArtwork,
+  localizeRegion,
+} from '../gallery/i18n';
 import {
   getCurrentRegionAnalysis,
   getVisibleRegion,
@@ -12,19 +16,26 @@ export type GalleryToolAction =
   | 'list_artworks'
   | 'navigate_to_artwork'
   | 'set_experience_mode'
+  | 'set_font_family'
+  | 'set_font_size'
+  | 'set_contrast'
+  | 'set_color_theme'
+  | 'set_content_language'
   | 'list_regions'
   | 'analyze_artwork_regions'
+  | 'focus_artwork_area'
   | 'zoom_to_artwork_detail'
   | 'focus_region'
   | 'describe_region'
   | 'clear_region_focus';
 
 export function buildGalleryState(state: GalleryState) {
-  const artwork = getArtwork(state.artworkId);
-  const speakingStyle = modeDefinitions[state.mode];
+  const language = state.personalization.language;
+  const artwork = localizeArtwork(getArtwork(state.artworkId), language);
+  const speakingStyle = getModeDefinition(state.mode, language);
   const visibleRegions = getVisibleRegions(state);
   const focusedRegion = state.focusedRegionId
-    ? getVisibleRegion(state, state.focusedRegionId)
+    ? localizeRegion(getVisibleRegion(state, state.focusedRegionId)!, language)
     : undefined;
   const regionAnalysis = getCurrentRegionAnalysis(state);
 
@@ -34,12 +45,19 @@ export function buildGalleryState(state: GalleryState) {
       title: artwork.title,
       artist: artwork.artist,
       year: artwork.yearLabel,
+      image: {
+        src: artwork.image.src,
+        width: artwork.image.width,
+        height: artwork.image.height,
+        alt: artwork.image.alt,
+      },
     },
     mode: state.mode,
     speakingStyle: {
       label: speakingStyle.label,
       instruction: speakingStyle.description,
     },
+    personalization: { ...state.personalization },
     focusedRegion: focusedRegion
       ? {
           id: focusedRegion.id,

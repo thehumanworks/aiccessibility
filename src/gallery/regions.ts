@@ -24,6 +24,7 @@ export function getVisibleRegions(
       confidence: 1,
       provenance: 'authored' as const,
     })),
+    ...(state.agentGroundedRegions[artworkId] ?? []),
     ...(state.acceptedModelRegions[artworkId] ?? []),
   ];
 }
@@ -43,6 +44,29 @@ function normalizeQuery(value: string): string {
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
     .replace(/\s+/g, ' ');
+}
+
+function hashString(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function slug(value: string): string {
+  return normalizeQuery(value).replace(/\s+/g, '-').slice(0, 32) || 'region';
+}
+
+export function createAgentGroundedRegionId(
+  label: string,
+  bounds: ArtworkRegion['bounds'],
+): string {
+  const signature = [bounds.x, bounds.y, bounds.width, bounds.height]
+    .map((value) => Math.round(value * 10_000))
+    .join(':');
+  return `agent-${slug(label)}-${hashString(`${normalizeQuery(label)}|${signature}`)}`;
 }
 
 export function findAuthoredRegionForQuery(

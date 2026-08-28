@@ -1,5 +1,12 @@
 import { artworks } from '../collection/artworks';
 import { experienceModes } from '../gallery/reducer';
+import {
+  colorThemes,
+  contrastLevels,
+  fontFamilies,
+  fontSizes,
+  galleryLanguages,
+} from '../gallery/personalization';
 
 export const artworkIds = artworks.map(({ id }) => id);
 
@@ -46,13 +53,79 @@ export const setExperienceModeInputSchema = {
   additionalProperties: false,
 } as const;
 
+export const setFontFamilyInputSchema = {
+  type: 'object',
+  properties: {
+    fontFamily: {
+      type: 'string',
+      enum: fontFamilies,
+      description: 'Bundled font family to use throughout the gallery.',
+    },
+  },
+  required: ['fontFamily'],
+  additionalProperties: false,
+} as const;
+
+export const setFontSizeInputSchema = {
+  type: 'object',
+  properties: {
+    fontSize: {
+      type: 'string',
+      enum: fontSizes,
+      description: 'Text-size preset to apply throughout the gallery.',
+    },
+  },
+  required: ['fontSize'],
+  additionalProperties: false,
+} as const;
+
+export const setContrastInputSchema = {
+  type: 'object',
+  properties: {
+    contrast: {
+      type: 'string',
+      enum: contrastLevels,
+      description: 'Bounded contrast level for gallery text and controls.',
+    },
+  },
+  required: ['contrast'],
+  additionalProperties: false,
+} as const;
+
+export const setColorThemeInputSchema = {
+  type: 'object',
+  properties: {
+    theme: {
+      type: 'string',
+      enum: colorThemes,
+      description: 'Light or dark color theme.',
+    },
+  },
+  required: ['theme'],
+  additionalProperties: false,
+} as const;
+
+export const setContentLanguageInputSchema = {
+  type: 'object',
+  properties: {
+    language: {
+      type: 'string',
+      enum: galleryLanguages,
+      description: 'Bundled content language: English, Spanish, or French.',
+    },
+  },
+  required: ['language'],
+  additionalProperties: false,
+} as const;
+
 export const regionIdInputSchema = {
   type: 'object',
   properties: {
     regionId: {
       type: 'string',
       minLength: 1,
-      description: 'Stable id of an authored or accepted region returned by list_regions.',
+      description:
+        'Stable id of an authored, agent-grounded, or accepted local-model region returned by list_regions.',
     },
   },
   required: ['regionId'],
@@ -97,6 +170,40 @@ export const zoomToArtworkDetailInputSchema = {
     },
   },
   required: ['query'],
+  additionalProperties: false,
+} as const;
+
+export const focusArtworkAreaInputSchema = {
+  type: 'object',
+  properties: {
+    label: {
+      type: 'string',
+      minLength: 2,
+      maxLength: 80,
+      description: 'Concise name for the visible detail being focused.',
+    },
+    description: {
+      type: 'string',
+      minLength: 2,
+      maxLength: 240,
+      description:
+        'Optional visual description. Do not present agent interpretation as museum fact.',
+    },
+    bounds: {
+      type: 'object',
+      properties: {
+        x: { type: 'number', minimum: 0, maximum: 1 },
+        y: { type: 'number', minimum: 0, maximum: 1 },
+        width: { type: 'number', exclusiveMinimum: 0, maximum: 1 },
+        height: { type: 'number', exclusiveMinimum: 0, maximum: 1 },
+      },
+      required: ['x', 'y', 'width', 'height'],
+      additionalProperties: false,
+      description:
+        'Bounds normalized to the unzoomed source artwork: x/y are the top-left corner and width/height are extents from 0 to 1.',
+    },
+  },
+  required: ['label', 'bounds'],
   additionalProperties: false,
 } as const;
 

@@ -1,6 +1,9 @@
 import { getArtwork, listArtworks } from '../collection/repository';
 import { pushArtworkToHistory } from './history';
-import { findAuthoredRegionForQuery } from './regions';
+import {
+  createAgentGroundedRegionId,
+  findAuthoredRegionForQuery,
+} from './regions';
 import type { GalleryAction } from './reducer';
 import type { GalleryState } from './types';
 import type { ArtworkRegion } from './types';
@@ -44,6 +47,12 @@ export interface ZoomToArtworkDetailOptions {
   signal?: AbortSignal;
 }
 
+export interface FocusArtworkAreaInput {
+  label: string;
+  description?: string;
+  bounds: ArtworkRegion['bounds'];
+}
+
 interface GalleryControllerDependencies {
   getState: () => GalleryState;
   applyAction: (action: GalleryAction) => GalleryState;
@@ -57,7 +66,13 @@ export interface GalleryController {
   goPrevious: () => GalleryState;
   goNext: () => GalleryState;
   setExperienceMode: (mode: string) => GalleryState;
+  setFontFamily: (fontFamily: string) => GalleryState;
+  setFontSize: (fontSize: string) => GalleryState;
+  setContrast: (contrast: string) => GalleryState;
+  setTheme: (theme: string) => GalleryState;
+  setLanguage: (language: string) => GalleryState;
   focusRegion: (regionId: string) => GalleryState;
+  focusArtworkArea: (input: FocusArtworkAreaInput) => GalleryState;
   clearRegionFocus: () => GalleryState;
   analyzeArtworkRegions: (
     options?: AnalyzeArtworkRegionOptions,
@@ -197,8 +212,32 @@ export function createGalleryController({
     goPrevious: () => goBy(-1),
     goNext: () => goBy(1),
     setExperienceMode: (mode) => applyAction({ type: 'set-mode', mode }),
+    setFontFamily: (fontFamily) =>
+      applyAction({ type: 'set-font-family', fontFamily }),
+    setFontSize: (fontSize) => applyAction({ type: 'set-font-size', fontSize }),
+    setContrast: (contrast) => applyAction({ type: 'set-contrast', contrast }),
+    setTheme: (theme) => applyAction({ type: 'set-theme', theme }),
+    setLanguage: (language) => applyAction({ type: 'set-language', language }),
     focusRegion: (regionId) =>
       applyAction({ type: 'focus-region', regionId }),
+    focusArtworkArea: ({ label, description, bounds }) => {
+      const artworkId = getState().artworkId;
+      const region: ArtworkRegion = {
+        id: createAgentGroundedRegionId(label, bounds),
+        label,
+        description:
+          `A visual agent grounded “${label}” within these artwork bounds.` +
+          (description ? ` ${description}` : '') +
+          ' This is an agent-supplied navigation cue, not museum-authored information.',
+        bounds,
+        provenance: 'agent-grounded',
+      };
+      return applyAction({
+        type: 'focus-agent-region',
+        artworkId,
+        region,
+      });
+    },
     clearRegionFocus: () => applyAction({ type: 'clear-focus' }),
     analyzeArtworkRegions: (options = {}) =>
       runArtworkRegionAnalysis(options, false),

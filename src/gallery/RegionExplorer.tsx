@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 
 import { getVisibleRegion } from './regions';
+import { getUiCopy, localizeRegion } from './i18n';
 import type { RegionBounds } from './types';
 import { useGallery } from './GalleryProvider';
 
@@ -54,21 +55,23 @@ export function RegionOverlay() {
 
 export function RegionExplorer() {
   const { state, controller } = useGallery();
+  const language = state.personalization.language;
+  const copy = getUiCopy(language);
   const focusedRegion = state.focusedRegionId
-    ? getVisibleRegion(state, state.focusedRegionId)
+    ? localizeRegion(getVisibleRegion(state, state.focusedRegionId)!, language)
     : undefined;
 
   if (!focusedRegion) return null;
 
   return (
-    <div className="region-explorer" aria-label="Artwork regions">
+    <div className="region-explorer" aria-label={copy.artworkRegions}>
       <div className="region-actions">
         <button
           type="button"
           className="region-action"
           onClick={() => controller.clearRegionFocus()}
         >
-          Show whole artwork
+          {copy.showWholeArtwork}
         </button>
       </div>
       <p className="region-focus-caption">

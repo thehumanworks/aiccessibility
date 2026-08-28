@@ -1,5 +1,7 @@
 import { getArtwork, isArtworkId, listArtworks } from '../collection/repository';
 import type { GalleryController } from '../gallery/controller';
+import { localizeArtwork, localizeRegion } from '../gallery/i18n';
+import type { GalleryLanguage } from '../gallery/types';
 import { describeRegionForMode } from '../gallery/regionDescriptions';
 import {
   getCurrentRegionAnalysis,
@@ -10,30 +12,87 @@ import {
   experienceModes,
   isExperienceMode,
 } from '../gallery/reducer';
+import {
+  colorThemes,
+  contrastLevels,
+  fontFamilies,
+  fontSizes,
+  galleryLanguages,
+  isColorTheme,
+  isContrastLevel,
+  isFontFamily,
+  isFontSize,
+  isGalleryLanguage,
+} from '../gallery/personalization';
 import { buildError, buildSuccess, type GalleryToolAction } from './results';
 import {
   artworkIds,
   analyzeArtworkRegionsInputSchema,
   emptyInputSchema,
+  focusArtworkAreaInputSchema,
   hasOnlyKeys,
   isRecord,
   listArtworksInputSchema,
   navigateToArtworkInputSchema,
   regionIdInputSchema,
   setExperienceModeInputSchema,
+  setFontFamilyInputSchema,
+  setFontSizeInputSchema,
+  setContrastInputSchema,
+  setColorThemeInputSchema,
+  setContentLanguageInputSchema,
   zoomToArtworkDetailInputSchema,
 } from './schemas';
 
-function compactRegion(region: ReturnType<typeof getVisibleRegions>[number]) {
+function compactRegion(
+  region: ReturnType<typeof getVisibleRegions>[number],
+  language: GalleryLanguage = 'en',
+) {
+  const localized = localizeRegion(region, language);
+  const provenance = localized.provenance ?? 'authored';
   return {
-    id: region.id,
-    label: region.label,
-    bounds: region.bounds,
-    confidence: region.confidence ?? 1,
-    provenance: region.provenance ?? 'authored',
-    ...(region.model ? { model: region.model } : {}),
-    ...(region.mask ? { mask: region.mask } : {}),
+    id: localized.id,
+    label: localized.label,
+    bounds: localized.bounds,
+    ...(provenance === 'agent-grounded'
+      ? {}
+      : { confidence: localized.confidence ?? 1 }),
+    provenance,
+    ...(localized.model ? { model: localized.model } : {}),
+    ...(localized.mask ? { mask: localized.mask } : {}),
   };
+}
+
+function validAgentBounds(value: unknown): value is {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  if (!isRecord(value) || !hasOnlyKeys(value, ['x', 'y', 'width', 'height'])) {
+    return false;
+  }
+  const coordinates = [value.x, value.y, value.width, value.height];
+  if (
+    !coordinates.every(
+      (coordinate) =>
+        typeof coordinate === 'number' && Number.isFinite(coordinate),
+    )
+  ) {
+    return false;
+  }
+  const { x, y, width, height } = value as Record<
+    'x' | 'y' | 'width' | 'height',
+    number
+  >;
+  return (
+    x >= 0 &&
+    y >= 0 &&
+    width > 0 &&
+    height > 0 &&
+    x + width <= 1 &&
+    y + height <= 1
+  );
 }
 
 function invalidInput(
@@ -65,7 +124,7 @@ export function createGalleryTools(
       name: 'get_gallery_state',
       title: 'Get gallery state',
       description:
-        'Read the artwork, selected speaking style, focused region, interpretation status, collection size, and revision currently shown in the gallery. Call this first whenever the visitor asks about the current view, including “tell me what you see”, “speak what you see”, “describe this”, or equivalent requests. The returned speakingStyle must govern the description’s interpretive tone and structure, but it does not replace your host persona or conversational voice. If focusedRegion is not null, immediately call describe_region with its id and explain that focused view from its mode-specific segments; otherwise explain the whole visible artwork through the returned speakingStyle using the visible page and artwork state.',
+        'Read the artwork and source-image geometry, selected speaking style, personalization preferences, focused region, interpretation status, collection size, and revision currently shown in the gallery. Call this first whenever the visitor asks about the current view, including “tell me what you see”, “speak what you see”, “describe this”, requests to personalize the experience, or requests to visually ground an area. The returned speakingStyle must govern the description’s interpretive tone and structure, but it does not replace your host persona or conversational voice. If focusedRegion is not null, immediately call describe_region with its id and explain that focused view from its mode-specific segments; otherwise explain the whole visible artwork through the returned speakingStyle using the visible page and artwork state.',
       inputSchema: emptyInputSchema,
       annotations: { readOnlyHint: true },
       execute: (input) => {
@@ -108,9 +167,13 @@ export function createGalleryTools(
         }
 
         const state = controller.getState();
-        const candidates = listArtworks().filter(
-          ({ id }) => input.excludeCurrent !== true || id !== state.artworkId,
-        );
+        const candidates = listArtworks()
+          .filter(
+            ({ id }) => input.excludeCurrent !== true || id !== state.artworkId,
+          )
+          .map((artwork) =>
+            localizeArtwork(artwork, state.personalization.language),
+          );
 
         return buildSuccess(
           'list_artworks',
@@ -222,10 +285,108 @@ export function createGalleryTools(
       },
     },
     {
+      name: 'set_font_family',
+      title: 'Set gallery font family',
+      description:
+        'Change all gallery text to one bundled typeface: Atkinson Hyperlegible, sans serif, serif, or monospace. Use this when a visitor expresses a reading preference or difficulty.',
+      inputSchema: setFontFamilyInputSchema,
+      annotations: { readOnlyHint: false },
+      execute: (input, options) => {
+        if (
+          !isRecord(input) ||
+          !hasOnlyKeys(input, ['fontFamily']) ||
+          typeof input.fontFamily !== 'string'
+        ) {
+          return invalidInput(controller, 'set_font_family', 'fontFamily must be one exact bundled font family, with no other properties.', '{ fontFamily: string }');
+        }
+        if (!isFontFamily(input.fontFamily)) {
+          return buildError('set_font_family', controller.getState(), 'UNKNOWN_FONT_FAMILY', `“${input.fontFamily}” is not an available font family.`, { validFontFamilies: fontFamilies });
+        }
+        if (options?.signal?.aborted) return cancelled(controller, 'set_font_family');
+        const state = controller.setFontFamily(input.fontFamily);
+        return buildSuccess('set_font_family', state, `The gallery now uses the ${state.personalization.fontFamily} font family.`);
+      },
+    },
+    {
+      name: 'set_font_size',
+      title: 'Set gallery text size',
+      description:
+        'Make all gallery text smaller or larger with a bounded size preset while preserving the responsive layout.',
+      inputSchema: setFontSizeInputSchema,
+      annotations: { readOnlyHint: false },
+      execute: (input, options) => {
+        if (!isRecord(input) || !hasOnlyKeys(input, ['fontSize']) || typeof input.fontSize !== 'string') {
+          return invalidInput(controller, 'set_font_size', 'fontSize must be one exact size preset, with no other properties.', '{ fontSize: string }');
+        }
+        if (!isFontSize(input.fontSize)) {
+          return buildError('set_font_size', controller.getState(), 'UNKNOWN_FONT_SIZE', `“${input.fontSize}” is not an available text size.`, { validFontSizes: fontSizes });
+        }
+        if (options?.signal?.aborted) return cancelled(controller, 'set_font_size');
+        const state = controller.setFontSize(input.fontSize);
+        return buildSuccess('set_font_size', state, `The gallery text size is now ${state.personalization.fontSize}.`);
+      },
+    },
+    {
+      name: 'set_contrast',
+      title: 'Set gallery contrast',
+      description:
+        'Set a softer, standard, or high-contrast palette. The softer preset remains bounded for readable text.',
+      inputSchema: setContrastInputSchema,
+      annotations: { readOnlyHint: false },
+      execute: (input, options) => {
+        if (!isRecord(input) || !hasOnlyKeys(input, ['contrast']) || typeof input.contrast !== 'string') {
+          return invalidInput(controller, 'set_contrast', 'contrast must be one exact contrast level, with no other properties.', '{ contrast: string }');
+        }
+        if (!isContrastLevel(input.contrast)) {
+          return buildError('set_contrast', controller.getState(), 'UNKNOWN_CONTRAST', `“${input.contrast}” is not an available contrast level.`, { validContrastLevels: contrastLevels });
+        }
+        if (options?.signal?.aborted) return cancelled(controller, 'set_contrast');
+        const state = controller.setContrast(input.contrast);
+        return buildSuccess('set_contrast', state, `The gallery contrast is now ${state.personalization.contrast}.`);
+      },
+    },
+    {
+      name: 'set_color_theme',
+      title: 'Set gallery color theme',
+      description: 'Switch the entire gallery and settings experience between light and dark themes.',
+      inputSchema: setColorThemeInputSchema,
+      annotations: { readOnlyHint: false },
+      execute: (input, options) => {
+        if (!isRecord(input) || !hasOnlyKeys(input, ['theme']) || typeof input.theme !== 'string') {
+          return invalidInput(controller, 'set_color_theme', 'theme must be light or dark, with no other properties.', '{ theme: string }');
+        }
+        if (!isColorTheme(input.theme)) {
+          return buildError('set_color_theme', controller.getState(), 'UNKNOWN_THEME', `“${input.theme}” is not an available color theme.`, { validThemes: colorThemes });
+        }
+        if (options?.signal?.aborted) return cancelled(controller, 'set_color_theme');
+        const state = controller.setTheme(input.theme);
+        return buildSuccess('set_color_theme', state, `The gallery now uses the ${state.personalization.theme} theme.`);
+      },
+    },
+    {
+      name: 'set_content_language',
+      title: 'Set gallery content language',
+      description:
+        'Translate the visible gallery interface, artwork labels, and accessible navigation immediately into English, Spanish, or French without changing canonical museum records.',
+      inputSchema: setContentLanguageInputSchema,
+      annotations: { readOnlyHint: false },
+      execute: (input, options) => {
+        if (!isRecord(input) || !hasOnlyKeys(input, ['language']) || typeof input.language !== 'string') {
+          return invalidInput(controller, 'set_content_language', 'language must be one exact bundled language code, with no other properties.', '{ language: string }');
+        }
+        if (!isGalleryLanguage(input.language)) {
+          return buildError('set_content_language', controller.getState(), 'UNKNOWN_LANGUAGE', `“${input.language}” is not an available content language.`, { validLanguages: galleryLanguages });
+        }
+        if (options?.signal?.aborted) return cancelled(controller, 'set_content_language');
+        const state = controller.setLanguage(input.language);
+        return buildSuccess('set_content_language', state, `The gallery content language is now ${state.personalization.language}.`);
+      },
+    },
+    {
       name: 'list_regions',
       title: 'List artwork regions',
       description:
-        'Use when the visitor asks what areas, subjects, or details of the visible artwork can be explored. List the authored and accepted local-model regions; authored regions are available before any model download. Pass a returned id to focus_region or describe_region.',
+        'Use when the visitor asks what areas, subjects, or details of the visible artwork can be explored. List the authored, agent-grounded, and accepted local-model regions currently available; authored regions are ready before any model download. Check this before creating another region, then pass a returned id to focus_region or describe_region.',
       inputSchema: emptyInputSchema,
       annotations: { readOnlyHint: true },
       execute: (input) => {
@@ -243,7 +404,69 @@ export function createGalleryTools(
           'list_regions',
           state,
           `Returned ${regions.length} visible, accepted region${regions.length === 1 ? '' : 's'}.`,
-          { regions: regions.map(compactRegion) },
+          {
+            regions: regions.map((region) =>
+              compactRegion(region, state.personalization.language),
+            ),
+          },
+        );
+      },
+    },
+    {
+      name: 'focus_artwork_area',
+      title: 'Focus an artwork area by visual bounds',
+      description:
+        'Prefer this when you can inspect the visible artwork with your own multimodal vision and can ground the requested detail yourself. Submit a concise label and normalized source-artwork bounds to add and atomically focus an agent-grounded region without downloading or running a browser-local model. Use this for text, inscriptions, signatures, lettering, and other details that generic object detectors handle poorly. Never guess bounds: if you cannot inspect the pixels, call list_regions and focus_region, or use zoom_to_artwork_detail as a local-model fallback.',
+      inputSchema: focusArtworkAreaInputSchema,
+      annotations: { readOnlyHint: false },
+      execute: (input, options) => {
+        const validLabel =
+          typeof input.label === 'string' &&
+          input.label.trim().length >= 2 &&
+          input.label.length <= 80;
+        const validDescription =
+          input.description === undefined ||
+          (typeof input.description === 'string' &&
+            input.description.trim().length >= 2 &&
+            input.description.length <= 240);
+        if (
+          !isRecord(input) ||
+          !hasOnlyKeys(input, ['label', 'description', 'bounds']) ||
+          !validLabel ||
+          !validDescription ||
+          !validAgentBounds(input.bounds)
+        ) {
+          return invalidInput(
+            controller,
+            'focus_artwork_area',
+            'label must be 2–80 characters, description must be 2–240 characters when provided, and normalized bounds must stay entirely within the source artwork.',
+            '{ label: string, description?: string, bounds: { x: number, y: number, width: number, height: number } }',
+          );
+        }
+        if (options?.signal?.aborted) {
+          return cancelled(controller, 'focus_artwork_area');
+        }
+        const label = (input.label as string).trim();
+        const description =
+          typeof input.description === 'string'
+            ? input.description.trim()
+            : undefined;
+        const state = controller.focusArtworkArea({
+          label,
+          ...(description ? { description } : {}),
+          bounds: input.bounds,
+        });
+        const region = state.focusedRegionId
+          ? getVisibleRegion(state, state.focusedRegionId)
+          : undefined;
+        return buildSuccess(
+          'focus_artwork_area',
+          state,
+          `Focused the agent-grounded area “${label}”.`,
+          {
+            region: compactRegion(region!, state.personalization.language),
+            verification: 'agent-grounded-visual-selection',
+          },
         );
       },
     },
@@ -320,7 +543,9 @@ export function createGalleryTools(
           analysis.message,
           {
             analysis,
-            regions: getVisibleRegions(state).map(compactRegion),
+            regions: getVisibleRegions(state).map((region) =>
+              compactRegion(region, state.personalization.language),
+            ),
           },
         );
       },
@@ -329,7 +554,7 @@ export function createGalleryTools(
       name: 'zoom_to_artwork_detail',
       title: 'Find and zoom to an artwork detail',
       description:
-        'Use immediately whenever the visitor asks to find, locate, inspect, look closely at, or zoom into one specific visible subject or section of the current painting. Pass the visitor’s natural-language target as query. The gallery first resolves matching authored detail aliases; otherwise it runs browser-local Grounding DINO Tiny detection on demand, refines the best matches with SlimSAM, and zooms the shared page to the strongest accepted match. Model results are unverified visual navigation suggestions, not museum facts. If the visitor also asks what the found detail looks like, follow with describe_region using the returned region id.',
+        'Use immediately whenever the visitor asks to find, locate, inspect, look closely at, or zoom into one specific visible subject or section and you cannot ground normalized bounds yourself. Pass the visitor’s natural-language target as query. The gallery first resolves matching authored detail aliases; otherwise it runs browser-local Grounding DINO Tiny detection on demand, refines the best matches with SlimSAM, and zooms to the strongest accepted suggestion. Do not use this for text, inscriptions, signatures, lettering, or OCR when you can inspect the image; use focus_artwork_area instead. Model results are unverified visual navigation suggestions, not museum facts. If the visitor also asks what the found detail looks like, follow with describe_region using the returned region id.',
       inputSchema: zoomToArtworkDetailInputSchema,
       annotations: { readOnlyHint: false },
       execute: async (input, options) => {
@@ -392,12 +617,14 @@ export function createGalleryTools(
           `Found and zoomed to ${region.label}.`,
           {
             query,
-            region: compactRegion(region),
+            region: compactRegion(region, state.personalization.language),
             analysis,
             verification:
               region.provenance === 'model-detected'
                 ? 'unverified-model-suggestion'
-                : 'gallery-authored-region',
+                : region.provenance === 'agent-grounded'
+                  ? 'agent-grounded-visual-selection'
+                  : 'gallery-authored-region',
           },
         );
       },
@@ -406,7 +633,7 @@ export function createGalleryTools(
       name: 'focus_region',
       title: 'Focus artwork region',
       description:
-        'Use when the visitor asks to focus, highlight, or zoom to a region already returned by list_regions or another tool. Pass that exact regionId to update the page’s shared zoom, highlight, and semantic gallery state. For a natural-language target without an id, use zoom_to_artwork_detail instead. If the visitor also asks about the region, follow with describe_region.',
+        'Use when the visitor asks to focus, highlight, or zoom to a visible authored, agent-grounded, or accepted local-model region already returned by list_regions or another tool. Pass that exact regionId to atomically update the page’s shared zoom, highlight, and semantic gallery state. For a natural-language target without an id, use zoom_to_artwork_detail instead. If the visitor also asks about the region, follow with describe_region.',
       inputSchema: regionIdInputSchema,
       annotations: { readOnlyHint: false },
       execute: (input, options) => {
@@ -439,7 +666,7 @@ export function createGalleryTools(
         }
         const state = controller.focusRegion(region.id);
         return buildSuccess('focus_region', state, `Focused on ${region.label}.`, {
-          region: compactRegion(region),
+          region: compactRegion(region, state.personalization.language),
         });
       },
     },
@@ -480,7 +707,7 @@ export function createGalleryTools(
           state,
           `Described ${region.label} in ${state.mode} style.`,
           {
-            region: compactRegion(region),
+            region: compactRegion(region, state.personalization.language),
             description: {
               mode: state.mode,
               segments: describeRegionForMode(state.artworkId, region, state.mode),

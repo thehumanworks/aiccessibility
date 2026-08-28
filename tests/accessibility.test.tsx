@@ -181,7 +181,7 @@ describe('accessible gallery', () => {
 });
 
 describe('Speaking style selector', () => {
-  it('is a radiogroup of five styles, with no native select anywhere', () => {
+  it('keeps the five speaking styles as radios beside native personalization controls', () => {
     const { container } = render(<App />);
 
     expect(container.querySelectorAll('select')).toHaveLength(0);
@@ -191,8 +191,8 @@ describe('Speaking style selector', () => {
     );
 
     openSettings();
-    expect(container.querySelectorAll('select')).toHaveLength(0);
-    expect(document.querySelectorAll('select')).toHaveLength(0);
+    expect(container.querySelectorAll('select')).toHaveLength(5);
+    expect(document.querySelectorAll('select')).toHaveLength(5);
   });
 
   it('changes the mode by choosing an option', () => {

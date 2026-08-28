@@ -29,6 +29,13 @@ interface SuccessResult {
     artwork: { id: string; title: string };
     mode: string;
     speakingStyle: { label: string; instruction: string };
+    personalization: {
+      fontFamily: string;
+      fontSize: string;
+      contrast: string;
+      theme: string;
+      language: string;
+    };
     focusedRegion?: { id: string; provenance: string } | null;
     availableRegionCount?: number;
     regionAnalysis?: { phase: string; backend: string };
@@ -38,7 +45,7 @@ interface SuccessResult {
   artworks?: Array<{ id: string }>;
   regions?: Array<{ id: string; provenance: string }>;
   query?: string;
-  region?: { id: string; provenance: string; confidence: number };
+  region?: { id: string; provenance: string; confidence?: number };
   description?: {
     mode: string;
     segments: Array<{ provenance: string; text: string }>;
@@ -199,7 +206,13 @@ describe('WebMCP probe contracts', () => {
       'list_artworks',
       'navigate_to_artwork',
       'set_experience_mode',
+      'set_font_family',
+      'set_font_size',
+      'set_contrast',
+      'set_color_theme',
+      'set_content_language',
       'list_regions',
+      'focus_artwork_area',
       'analyze_artwork_regions',
       'zoom_to_artwork_detail',
       'focus_region',
@@ -232,7 +245,19 @@ describe('WebMCP probe contracts', () => {
     expect(
       findTool(tools, 'set_experience_mode').annotations?.readOnlyHint,
     ).toBe(false);
+    for (const name of [
+      'set_font_family',
+      'set_font_size',
+      'set_contrast',
+      'set_color_theme',
+      'set_content_language',
+    ]) {
+      expect(findTool(tools, name).annotations?.readOnlyHint).toBe(false);
+    }
     expect(findTool(tools, 'list_regions').annotations?.readOnlyHint).toBe(true);
+    expect(
+      findTool(tools, 'focus_artwork_area').annotations?.readOnlyHint,
+    ).toBe(false);
     expect(findTool(tools, 'describe_region').annotations?.readOnlyHint).toBe(
       true,
     );
@@ -317,6 +342,71 @@ describe('WebMCP probe contracts', () => {
       instruction: 'Concrete visual detail, without invented meaning.',
     });
     expect(listResult.state.revision).toBe(0);
+    expect(controller.getState()).toBe(before);
+  });
+
+  it('applies all five personalization tools through one live state', async () => {
+    const controller = createTestController();
+    const tools = createGalleryTools(controller);
+
+    await findTool(tools, 'set_font_family').execute(
+      { fontFamily: 'mono' },
+      executionOptions(),
+    );
+    await findTool(tools, 'set_font_size').execute(
+      { fontSize: 'extra-large' },
+      executionOptions(),
+    );
+    await findTool(tools, 'set_contrast').execute(
+      { contrast: 'high' },
+      executionOptions(),
+    );
+    await findTool(tools, 'set_color_theme').execute(
+      { theme: 'light' },
+      executionOptions(),
+    );
+    const result = (await findTool(tools, 'set_content_language').execute(
+      { language: 'es' },
+      executionOptions(),
+    )) as SuccessResult;
+
+    expect(result.state).toMatchObject({
+      artwork: {
+        title: 'El bulevar Montmartre en una mañana de invierno',
+      },
+      personalization: {
+        fontFamily: 'mono',
+        fontSize: 'extra-large',
+        contrast: 'high',
+        theme: 'light',
+        language: 'es',
+      },
+      revision: 5,
+    });
+
+    const repeated = (await findTool(tools, 'set_content_language').execute(
+      { language: 'es' },
+      executionOptions(),
+    )) as SuccessResult;
+    expect(repeated.state.revision).toBe(5);
+  });
+
+  it('rejects unknown personalization values without changing state', async () => {
+    const controller = createTestController();
+    const tools = createGalleryTools(controller);
+    const before = controller.getState();
+
+    const result = (await findTool(tools, 'set_font_family').execute(
+      { fontFamily: 'papyrus' },
+      executionOptions(),
+    )) as ErrorResult;
+    const extra = (await findTool(tools, 'set_color_theme').execute(
+      { theme: 'light', surprise: true },
+      executionOptions(),
+    )) as ErrorResult;
+
+    expect(result.error.code).toBe('UNKNOWN_FONT_FAMILY');
+    expect(extra.error.code).toBe('INVALID_INPUT');
     expect(controller.getState()).toBe(before);
   });
 
@@ -519,7 +609,7 @@ describe('WebMCP probe contracts', () => {
       createGalleryTools(controller),
       'zoom_to_artwork_detail',
     ).execute(
-      { query: 'the Japanese text and signature in the upper-left corner' },
+      { query: 'the Japanese inscriptions in the upper-left corner' },
       executionOptions(),
     )) as SuccessResult;
 
@@ -541,6 +631,51 @@ describe('WebMCP probe contracts', () => {
       },
     });
     expect(runner).not.toHaveBeenCalled();
+  });
+
+  it('lets a visual agent add and focus normalized bounds without local inference', async () => {
+    const runner = vi.fn<RegionAnalysisRunner>();
+    const controller = createTestController(runner);
+    controller.navigateToArtwork('hokusai-great-wave');
+    const tool = findTool(createGalleryTools(controller), 'focus_artwork_area');
+
+    const result = (await tool.execute(
+      {
+        label: 'Japanese inscriptions',
+        description:
+          'A vertical title cartouche and Hokusai signature appear at the upper left.',
+        bounds: { x: 0.012, y: 0.05, width: 0.085, height: 0.26 },
+      },
+      executionOptions(),
+    )) as SuccessResult;
+
+    expect(result).toMatchObject({
+      ok: true,
+      action: 'focus_artwork_area',
+      verification: 'agent-grounded-visual-selection',
+      region: {
+        id: expect.stringMatching(/^agent-japanese-inscriptions-/),
+        label: 'Japanese inscriptions',
+        provenance: 'agent-grounded',
+        bounds: { x: 0.012, y: 0.05, width: 0.085, height: 0.26 },
+      },
+      state: {
+        focusedRegion: { provenance: 'agent-grounded' },
+        availableRegionCount: 5,
+        regionAnalysis: { phase: 'idle', backend: 'authored' },
+      },
+    });
+    expect(result.region?.confidence).toBeUndefined();
+    expect(runner).not.toHaveBeenCalled();
+
+    const invalid = (await tool.execute(
+      {
+        label: 'Outside',
+        bounds: { x: 0.9, y: 0.1, width: 0.2, height: 0.2 },
+      },
+      executionOptions(),
+    )) as ErrorResult;
+    expect(invalid.error.code).toBe('INVALID_INPUT');
   });
 
   it('returns a recoverable not-found result when a natural-language query has no accepted match', async () => {
@@ -686,7 +821,7 @@ describe('WebMCP probe contracts', () => {
     });
 
     const { unmount } = render(createElement(App));
-    await waitFor(() => expect(modelContext.tools).toHaveLength(10));
+    await waitFor(() => expect(modelContext.tools).toHaveLength(16));
 
     await act(async () => {
       await findTool(modelContext.tools, 'set_experience_mode').execute(
@@ -711,7 +846,7 @@ describe('WebMCP probe contracts', () => {
       'story',
     );
     expect(window.location.search).toBe('?artwork=hokusai-great-wave');
-    expect(modelContext.tools).toHaveLength(10);
+    expect(modelContext.tools).toHaveLength(16);
 
     // The tool-set mode is the chosen option of the wall-label control.
     const checkedStyle = (group: HTMLElement) =>
@@ -752,7 +887,7 @@ describe('WebMCP probe contracts', () => {
     const { unmount } = render(
       createElement(StrictMode, null, createElement(App)),
     );
-    await waitFor(() => expect(modelContext.tools).toHaveLength(10));
+    await waitFor(() => expect(modelContext.tools).toHaveLength(16));
 
     let result: SuccessResult | undefined;
     await act(async () => {

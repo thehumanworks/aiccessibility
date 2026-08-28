@@ -1,6 +1,14 @@
 import { artworks } from '../collection/artworks';
 import { isArtworkId } from '../collection/repository';
 import { getVisibleRegion, idleRegionAnalysis } from './regions';
+import {
+  defaultPersonalization,
+  isColorTheme,
+  isContrastLevel,
+  isFontFamily,
+  isFontSize,
+  isGalleryLanguage,
+} from './personalization';
 import type {
   ArtworkId,
   ExperienceMode,
@@ -23,7 +31,17 @@ export const defaultArtworkId: ArtworkId = artworks[0].id;
 export type GalleryAction =
   | { type: 'navigate'; artworkId: string }
   | { type: 'set-mode'; mode: string }
+  | { type: 'set-font-family'; fontFamily: string }
+  | { type: 'set-font-size'; fontSize: string }
+  | { type: 'set-contrast'; contrast: string }
+  | { type: 'set-theme'; theme: string }
+  | { type: 'set-language'; language: string }
   | { type: 'focus-region'; regionId: string }
+  | {
+      type: 'focus-agent-region';
+      artworkId: ArtworkId;
+      region: ArtworkRegion;
+    }
   | { type: 'clear-focus' }
   | {
       type: 'region-analysis-progress';
@@ -60,8 +78,10 @@ export function createInitialGalleryState(
   return {
     artworkId,
     mode: 'literal',
+    personalization: { ...defaultPersonalization },
     focusedRegionId: null,
     interpretation: null,
+    agentGroundedRegions: {},
     acceptedModelRegions: {},
     regionAnalysis: Object.fromEntries(
       artworks.map((artwork) => [artwork.id, { ...idleRegionAnalysis }]),
@@ -113,6 +133,86 @@ export function galleryReducer(
         revision: incrementRevision(state),
       };
 
+    case 'set-font-family':
+      if (
+        !isFontFamily(action.fontFamily) ||
+        action.fontFamily === state.personalization.fontFamily
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        personalization: {
+          ...state.personalization,
+          fontFamily: action.fontFamily,
+        },
+        revision: incrementRevision(state),
+      };
+
+    case 'set-font-size':
+      if (
+        !isFontSize(action.fontSize) ||
+        action.fontSize === state.personalization.fontSize
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        personalization: {
+          ...state.personalization,
+          fontSize: action.fontSize,
+        },
+        revision: incrementRevision(state),
+      };
+
+    case 'set-contrast':
+      if (
+        !isContrastLevel(action.contrast) ||
+        action.contrast === state.personalization.contrast
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        personalization: {
+          ...state.personalization,
+          contrast: action.contrast,
+        },
+        revision: incrementRevision(state),
+      };
+
+    case 'set-theme':
+      if (
+        !isColorTheme(action.theme) ||
+        action.theme === state.personalization.theme
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        personalization: {
+          ...state.personalization,
+          theme: action.theme,
+        },
+        revision: incrementRevision(state),
+      };
+
+    case 'set-language':
+      if (
+        !isGalleryLanguage(action.language) ||
+        action.language === state.personalization.language
+      ) {
+        return state;
+      }
+      return {
+        ...state,
+        personalization: {
+          ...state.personalization,
+          language: action.language,
+        },
+        revision: incrementRevision(state),
+      };
+
     case 'focus-region': {
       const region = getVisibleRegion(state, action.regionId as RegionId);
       if (!region || region.id === state.focusedRegionId) {
@@ -122,6 +222,29 @@ export function galleryReducer(
       return {
         ...state,
         focusedRegionId: region.id,
+        revision: incrementRevision(state),
+      };
+    }
+
+    case 'focus-agent-region': {
+      if (
+        action.artworkId !== state.artworkId ||
+        action.region.provenance !== 'agent-grounded'
+      ) {
+        return state;
+      }
+      const existing = state.agentGroundedRegions[action.artworkId] ?? [];
+      const regions = [
+        ...existing.filter(({ id }) => id !== action.region.id),
+        action.region,
+      ].slice(-12);
+      return {
+        ...state,
+        focusedRegionId: action.region.id,
+        agentGroundedRegions: {
+          ...state.agentGroundedRegions,
+          [action.artworkId]: regions,
+        },
         revision: incrementRevision(state),
       };
     }

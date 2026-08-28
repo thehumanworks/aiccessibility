@@ -240,6 +240,25 @@ Input:
 { query: string }
 ```
 
+### `focus_artwork_area`
+
+Mutation. Preferred when the calling multimodal agent can inspect the artwork
+and ground a requested detail itself. Accepts a concise label, optional visual
+description, and normalized source-artwork bounds; stores the area with
+`agent-grounded` provenance and focuses it in the same atomic state update.
+No browser-local model is downloaded or run. The result remains a navigation
+cue rather than museum-authored fact.
+
+Input:
+
+```ts
+{
+  label: string;
+  description?: string;
+  bounds: { x: number; y: number; width: number; height: number };
+}
+```
+
 ### `clear_region_focus`
 
 Mutation. Restores the whole artwork without changing mode or interpretation.

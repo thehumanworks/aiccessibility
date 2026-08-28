@@ -81,7 +81,13 @@ test('registered tools mutate the visible gallery and remain available', async (
       'list_artworks',
       'navigate_to_artwork',
       'set_experience_mode',
+      'set_font_family',
+      'set_font_size',
+      'set_contrast',
+      'set_color_theme',
+      'set_content_language',
       'list_regions',
+      'focus_artwork_area',
       'analyze_artwork_regions',
       'zoom_to_artwork_detail',
       'focus_region',
@@ -176,7 +182,7 @@ test('registered tools mutate the visible gallery and remain available', async (
     },
   });
   expect(await page.evaluate(() => window.galleryToolHarness.names())).toHaveLength(
-    10,
+    16,
   );
 
   // The settings copy of the shared select agrees with the tool result.
@@ -189,7 +195,70 @@ test('registered tools mutate the visible gallery and remain available', async (
   ).toHaveAttribute('aria-checked', 'true');
   await page.keyboard.press('Escape');
   expect(await page.evaluate(() => window.galleryToolHarness.names())).toHaveLength(
-    10,
+    16,
   );
+
+  await page.evaluate(() =>
+    window.galleryToolHarness.execute('navigate_to_artwork', {
+      artworkId: 'hokusai-great-wave',
+    }),
+  );
+  await expect
+    .poll(() => page.locator('.stage-carousel > .artwork-figure').count())
+    .toBe(1);
+  const agentFocus = await page.evaluate(() =>
+    window.galleryToolHarness.execute('focus_artwork_area', {
+      label: 'Japanese inscriptions',
+      bounds: { x: 0.012, y: 0.05, width: 0.085, height: 0.26 },
+    }),
+  );
+  await expect(page.locator('.artwork-canvas')).toHaveAttribute(
+    'data-focused-region',
+    /agent-japanese-inscriptions-/,
+  );
+  await expect(
+    page.locator('[data-provenance="agent-grounded"]'),
+  ).toBeVisible();
+  expect(agentFocus.state.focusedRegion).toMatchObject({
+    provenance: 'agent-grounded',
+  });
+
+  await page.evaluate(async () => {
+    await window.galleryToolHarness.execute('set_font_family', {
+      fontFamily: 'mono',
+    });
+    await window.galleryToolHarness.execute('set_font_size', {
+      fontSize: 'extra-large',
+    });
+    await window.galleryToolHarness.execute('set_contrast', {
+      contrast: 'high',
+    });
+    await window.galleryToolHarness.execute('set_color_theme', {
+      theme: 'light',
+    });
+    await window.galleryToolHarness.execute('set_content_language', {
+      language: 'es',
+    });
+  });
+
+  const root = page.locator('html');
+  await expect(root).toHaveAttribute('data-font-family', 'mono');
+  await expect(root).toHaveAttribute('data-font-size', 'extra-large');
+  await expect(root).toHaveAttribute('data-contrast', 'high');
+  await expect(root).toHaveAttribute('data-theme', 'light');
+  await expect(root).toHaveAttribute('lang', 'es');
+  await expect(
+    page.getByRole('heading', {
+      level: 2,
+      name: 'Bajo la ola de Kanagawa (La gran ola)',
+    }),
+  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ajustes de la galería' })).toBeVisible();
+  expect(
+    await page.evaluate(() => getComputedStyle(document.documentElement).fontSize),
+  ).toBe('20px');
+  expect(
+    await page.evaluate(() => getComputedStyle(document.body).fontFamily),
+  ).toContain('JetBrains Mono');
 });
 

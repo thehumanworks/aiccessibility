@@ -9,13 +9,16 @@ The gallery presents six public-domain works from The Metropolitan Museum of
 Art, one at a time, inside a generated Renaissance frame. Interface chrome is
 deliberately minimal: a wordmark, a wall label, discreet edge navigation, and a
 single settings cog that opens an accessible modal holding the five experience
-modes and the supporting explanations.
+modes, five personalization controls, and their supporting explanations.
 
-Ten Site Tools are registered on the top-level document. Alongside collection,
-navigation, speaking-style, and authored-region actions,
-`zoom_to_artwork_detail` accepts a natural-language visual target, runs
-Grounding DINO Tiny and SlimSAM locally only when no matching authored detail
-is available, and atomically zooms the shared page to the grounded region. The
+Sixteen Site Tools are registered on the top-level document. Alongside collection,
+navigation, speaking-style, and authored-region actions, five personalization
+tools let a person or agent change the bundled font, text size, contrast, color
+theme, and visible content language in the same live session.
+`focus_artwork_area` lets a multimodal caller submit normalized visual bounds
+and atomically zoom the shared page without a browser-local model.
+`zoom_to_artwork_detail` remains an optional Grounding DINO Tiny and SlimSAM
+fallback when neither authored nor caller-grounded bounds are available. The
 tools drive exactly the same reducer as the visible controls, so an agent and a
 person never diverge into separate state.
 Live ChatGPT Voice validation is **not** yet complete; see
@@ -68,6 +71,8 @@ npx playwright install chromium
 - Plain CSS using cascade layers, custom-property design tokens, and a container
   query on the stage so the artwork sizes itself to the space that is actually
   left over
+- Four self-hosted font families, bounded text-size and contrast presets,
+  light/dark themes, and English/Spanish/French presentation overlays
 - A nine-slice `border-image` frame (`public/frames/renaissance-frame.png`) that
   adapts to portrait and landscape works without covering or distorting the art
 - Vitest, Testing Library, and axe for component/accessibility checks
@@ -82,6 +87,10 @@ Key files:
   lazy WebGPU/WASM vision-model loading, detection, and mask refinement
 - [`src/gallery/reducer.ts`](src/gallery/reducer.ts) — the single state graph
 - [`src/gallery/SettingsDialog.tsx`](src/gallery/SettingsDialog.tsx) — the cog modal
+- [`src/gallery/PersonalizationControls.tsx`](src/gallery/PersonalizationControls.tsx) —
+  the shared manual controls for the five adaptive presentation dimensions
+- [`src/gallery/i18n.ts`](src/gallery/i18n.ts) — session-only localized presentation
+  copy layered over canonical museum records
 - [`src/gallery/SpeakingStyleSelect.tsx`](src/gallery/SpeakingStyleSelect.tsx) —
   synchronized Motion-layout Speaking style radiogroup with roving focus and
   1–5 keyboard shortcuts

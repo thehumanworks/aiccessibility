@@ -2,12 +2,13 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { type KeyboardEvent, useId, useRef } from 'react';
 
 import type { GalleryController } from './controller';
-import { modeDefinitions } from './modes';
+import { getModeDefinition, getUiCopy } from './i18n';
 import { experienceModes } from './reducer';
-import type { ExperienceMode } from './types';
+import type { ExperienceMode, GalleryLanguage } from './types';
 
 interface SpeakingStyleSelectProps {
   mode: ExperienceMode;
+  language: GalleryLanguage;
   controller: GalleryController;
   /* `label` sits under the wall label; `settings` sits in the full-viewport
      settings. Both drive the same controller, so they stay in step. */
@@ -18,6 +19,7 @@ interface SpeakingStyleSelectProps {
    visible, no popup the operating system gets to draw for us. */
 export function SpeakingStyleSelect({
   mode,
+  language,
   controller,
   variant,
 }: SpeakingStyleSelectProps) {
@@ -31,6 +33,7 @@ export function SpeakingStyleSelect({
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const selectedIndex = experienceModes.indexOf(mode);
+  const copy = getUiCopy(language);
 
   // Selection follows focus, so choosing and moving are the same gesture.
   const select = (index: number) => {
@@ -105,7 +108,7 @@ export function SpeakingStyleSelect({
       data-motion={reduceMotion ? 'reduced' : 'full'}
     >
       <span className="style-select-label" id={labelId}>
-        Speaking style
+        {copy.speakingStyle}
       </span>
 
       <div
@@ -146,7 +149,7 @@ export function SpeakingStyleSelect({
                 {index + 1}
               </span>
               <span className="style-select-name">
-                {modeDefinitions[experienceMode].label}
+                {getModeDefinition(experienceMode, language).label}
               </span>
             </button>
           );
@@ -158,14 +161,13 @@ export function SpeakingStyleSelect({
       <div hidden>
         {experienceModes.map((experienceMode, index) => (
           <span key={experienceMode} id={`${groupId}-description-${index}`}>
-            {modeDefinitions[experienceMode].description}
+            {getModeDefinition(experienceMode, language).description}
           </span>
         ))}
       </div>
 
       <p className="style-select-hint" id={hintId}>
-        Arrow keys move through the five styles. Number keys 1 to 5 choose one
-        directly.
+        {copy.speakingHint}
       </p>
 
       {variant === 'settings' ? (
@@ -178,7 +180,7 @@ export function SpeakingStyleSelect({
             exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
             transition={textTransition}
           >
-            {modeDefinitions[mode].description}
+            {getModeDefinition(mode, language).description}
           </motion.p>
         </AnimatePresence>
       ) : null}

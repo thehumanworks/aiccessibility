@@ -33,6 +33,7 @@ describe('galleryReducer', () => {
       mode: 'literal',
       focusedRegionId: null,
       interpretation: null,
+      agentGroundedRegions: {},
       acceptedModelRegions: {},
       revision: 0,
     });
@@ -57,6 +58,40 @@ describe('galleryReducer', () => {
       interpretation: null,
       revision: state.revision + 1,
     });
+  });
+
+  it('updates and preserves bounded personalization preferences', () => {
+    let state = createInitialGalleryState();
+    state = galleryReducer(state, { type: 'set-font-family', fontFamily: 'mono' });
+    state = galleryReducer(state, { type: 'set-font-size', fontSize: 'large' });
+    state = galleryReducer(state, { type: 'set-contrast', contrast: 'high' });
+    state = galleryReducer(state, { type: 'set-theme', theme: 'light' });
+    state = galleryReducer(state, { type: 'set-language', language: 'es' });
+
+    expect(state.personalization).toEqual({
+      fontFamily: 'mono',
+      fontSize: 'large',
+      contrast: 'high',
+      theme: 'light',
+      language: 'es',
+    });
+    expect(state.revision).toBe(5);
+
+    const navigated = galleryReducer(state, {
+      type: 'navigate',
+      artworkId: 'degas-dance-class',
+    });
+    expect(navigated.personalization).toEqual(state.personalization);
+  });
+
+  it('rejects invalid and idempotent personalization updates', () => {
+    const state = createInitialGalleryState();
+    expect(galleryReducer(state, { type: 'set-font-family', fontFamily: 'comic' })).toBe(state);
+    expect(galleryReducer(state, { type: 'set-font-size', fontSize: 'huge' })).toBe(state);
+    expect(galleryReducer(state, { type: 'set-contrast', contrast: 'none' })).toBe(state);
+    expect(galleryReducer(state, { type: 'set-theme', theme: 'neon' })).toBe(state);
+    expect(galleryReducer(state, { type: 'set-language', language: 'xx' })).toBe(state);
+    expect(galleryReducer(state, { type: 'set-theme', theme: 'dark' })).toBe(state);
   });
 
   it('mode changes retain artwork, focus, and interpretation', () => {
@@ -106,6 +141,29 @@ describe('galleryReducer', () => {
     );
     expect(galleryReducer(state, { type: 'clear-focus' })).toBe(state);
     expect(galleryReducer(state, { type: 'clear-interpretation' })).toBe(state);
+  });
+
+  it('stores and focuses an agent-grounded region independently of model analysis', () => {
+    const state = createInitialGalleryState();
+    const region = {
+      id: 'agent-red-omnibus-test',
+      label: 'Red omnibus',
+      description: 'A visual agent grounded the red omnibus in this area.',
+      bounds: { x: 0.42, y: 0.5, width: 0.14, height: 0.18 },
+      provenance: 'agent-grounded' as const,
+    };
+    const next = galleryReducer(state, {
+      type: 'focus-agent-region',
+      artworkId: state.artworkId,
+      region,
+    });
+
+    expect(next).toMatchObject({
+      focusedRegionId: region.id,
+      agentGroundedRegions: { [state.artworkId]: [region] },
+      acceptedModelRegions: {},
+      revision: 1,
+    });
   });
 });
 

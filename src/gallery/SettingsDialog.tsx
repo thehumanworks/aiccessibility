@@ -8,9 +8,14 @@ import {
 } from 'react';
 
 import type { GalleryController } from './controller';
-import { provenanceDefinitions } from './modes';
+import { getProvenanceDefinition, getUiCopy } from './i18n';
+import { PersonalizationControls } from './PersonalizationControls';
 import { SpeakingStyleSelect } from './SpeakingStyleSelect';
-import type { ExperienceMode, ProvenanceKind } from './types';
+import type {
+  ExperienceMode,
+  PersonalizationPreferences,
+  ProvenanceKind,
+} from './types';
 
 const focusableSelector = [
   'a[href]',
@@ -35,6 +40,7 @@ interface SettingsDialogProps {
   open: boolean;
   onClose: () => void;
   mode: ExperienceMode;
+  preferences: PersonalizationPreferences;
   controller: GalleryController;
   siteToolsSupported: boolean;
   returnFocusTo: RefObject<HTMLButtonElement | null>;
@@ -44,6 +50,7 @@ export function SettingsDialog({
   open,
   onClose,
   mode,
+  preferences,
   controller,
   siteToolsSupported,
   returnFocusTo,
@@ -52,6 +59,7 @@ export function SettingsDialog({
   const headingRef = useRef<HTMLHeadingElement>(null);
   const shouldRestoreFocus = useRef(false);
   const reduceMotion = useReducedMotion();
+  const copy = getUiCopy(preferences.language);
 
   /* The native dialog stays open through the exit animation: a modal dialog
      holds the top layer, so focus can only return to the cog once it closes. */
@@ -192,52 +200,53 @@ export function SettingsDialog({
           >
             <div className="settings-masthead">
               <h2 id="settings-title" ref={headingRef} tabIndex={-1}>
-                Gallery settings
+                {copy.settingsTitle}
               </h2>
               <button
                 type="button"
                 className="settings-close"
                 onClick={onClose}
-                aria-label="Close gallery settings"
+                aria-label={copy.closeSettings}
               >
                 <span aria-hidden="true">×</span>
               </button>
             </div>
 
+            <div className="settings-section settings-personalization">
+              <h3>{copy.personalizationTitle}</h3>
+              <p className="settings-lede">{copy.personalizationLede}</p>
+              <PersonalizationControls
+                preferences={preferences}
+                controller={controller}
+              />
+            </div>
+
             <div className="settings-section">
-              <h3>Choosing the lens</h3>
-              <p className="settings-lede">
-                The artwork stays where it is; only the way it is described
-                changes. This is the same control that sits under the wall
-                label.
-              </p>
+              <h3>{copy.choosingLens}</h3>
+              <p className="settings-lede">{copy.choosingLensLede}</p>
               <SpeakingStyleSelect
                 mode={mode}
+                language={preferences.language}
                 controller={controller}
                 variant="settings"
               />
             </div>
 
             <div className="settings-section">
-              <h3>How to read what you hear</h3>
+              <h3>{copy.provenanceTitle}</h3>
               <dl className="provenance-list">
                 {provenanceOrder.map((kind) => (
                   <div key={kind} className="provenance-item">
-                    <dt>{provenanceDefinitions[kind].label}</dt>
-                    <dd>{provenanceDefinitions[kind].description}</dd>
+                    <dt>{getProvenanceDefinition(kind, preferences.language).label}</dt>
+                    <dd>{getProvenanceDefinition(kind, preferences.language).description}</dd>
                   </div>
                 ))}
               </dl>
             </div>
 
             <div className="settings-section">
-              <h3>Talking with the gallery</h3>
-              <p>
-                This page publishes its live state and four actions as WebMCP
-                Site Tools, so an agent such as ChatGPT can read the wall, list
-                the collection, move to another work, and change the lens while
-                you watch.
-              </p>
+              <h3>{copy.talkingTitle}</h3>
+              <p>{copy.talkingBody}</p>
               <p className="settings-signal">
                 <span
                   className="settings-dot"
@@ -245,31 +254,28 @@ export function SettingsDialog({
                   aria-hidden="true"
                 />
                 {siteToolsSupported
-                  ? 'Site Tools detected in this browser.'
-                  : 'No Site Tools in this browser. The gallery stays fully usable by keyboard and screen reader.'}
+                  ? copy.toolsDetected
+                  : copy.toolsUnavailable}
               </p>
             </div>
 
             <div className="settings-section">
-              <h3>Comfort and privacy</h3>
+              <h3>{copy.comfortTitle}</h3>
               <p>
-                Transitions follow your system reduced-motion setting. Nothing
-                is stored: no account, no cookie, no tracking, no preference
-                carried between visits. All six works come from The Metropolitan
-                Museum of Art and are marked Public Domain under the{' '}
+                {copy.comfortBody}{' '}
                 <a
                   href="https://www.metmuseum.org/policies/image-resources"
                   rel="noreferrer noopener"
                   target="_blank"
                 >
-                  Met Open Access policy
+                  {copy.metPolicy}
                 </a>
                 .
               </p>
             </div>
 
             <button type="button" className="settings-done" onClick={onClose}>
-              Back to the gallery
+              {copy.done}
             </button>
           </motion.section>
         ) : null}

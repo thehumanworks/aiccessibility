@@ -415,6 +415,7 @@ export const artworks = [
           'Japanese text',
           'Japanese writing',
           'Japanese inscription',
+          'Japanese inscriptions',
           'title cartouche',
           'artist signature',
           'Hokusai signature',

@@ -21,11 +21,11 @@ export function describeRegionForMode(
   mode: ExperienceMode,
 ): readonly InterpretationSegment[] {
   const artwork = getArtwork(artworkId);
+  const provenance = region.provenance ?? 'authored';
   const base: InterpretationSegment = {
-    provenance:
-      region.provenance === 'model-detected' ? 'interpreted' : 'observed',
+    provenance: provenance === 'authored' ? 'observed' : 'interpreted',
     text:
-      region.provenance === 'model-detected'
+      provenance === 'model-detected'
         ? `A local vision model suggests “${region.label}” in this area. This is an unverified navigation cue, not museum fact.`
         : region.description,
   };
@@ -62,7 +62,7 @@ export function describeRegionForMode(
         base,
         {
           provenance: 'known',
-          text: `This region belongs to ${artwork.title}, made by ${artwork.artist} in ${artwork.yearLabel}; the region label itself is ${region.provenance === 'model-detected' ? 'a local model suggestion' : 'authored gallery guidance'}.`,
+          text: `This region belongs to ${artwork.title}, made by ${artwork.artist} in ${artwork.yearLabel}; the region label itself is ${provenance === 'model-detected' ? 'a local model suggestion' : provenance === 'agent-grounded' ? 'an agent-grounded navigation cue' : 'authored gallery guidance'}.`,
         },
       ];
   }

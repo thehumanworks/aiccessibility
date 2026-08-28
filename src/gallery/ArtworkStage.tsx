@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { type CSSProperties, useState } from 'react';
 
 import { getVisibleRegion } from './regions';
+import { getUiCopy, localizeRegion } from './i18n';
 import { RegionExplorer, RegionOverlay } from './RegionExplorer';
 import type { Artwork } from './types';
 import { useGallery } from './GalleryProvider';
@@ -32,13 +33,15 @@ export function ArtworkStage({
 }: ArtworkStageProps) {
   const [imageState, setImageState] = useState<ImageState>('loading');
   const { state } = useGallery();
+  const language = state.personalization.language;
+  const copy = getUiCopy(language);
   const reduceMotion = useReducedMotion();
-  const firstObservation = artwork.observed[0]?.text;
+  const firstObservation = language === 'en' ? artwork.observed[0]?.text : undefined;
   const orientation =
     artwork.image.width >= artwork.image.height ? 'landscape' : 'portrait';
   const titleId = `artwork-title-${artwork.id}`;
   const focusedRegion = state.focusedRegionId
-    ? getVisibleRegion(state, state.focusedRegionId)
+    ? localizeRegion(getVisibleRegion(state, state.focusedRegionId)!, language)
     : undefined;
   const zoomScale = focusedRegion
     ? Math.min(2.6, Math.max(1.35, 0.82 / Math.max(focusedRegion.bounds.width, focusedRegion.bounds.height)))
@@ -95,14 +98,14 @@ export function ArtworkStage({
           <div
             className="artwork-fallback"
             role="img"
-            aria-label={`Image unavailable: ${artwork.title} by ${artwork.artist}.`}
+            aria-label={`${copy.imageUnavailable}: ${artwork.title}, ${artwork.artist}.`}
           >
             <p className="artwork-fallback-title">
-              The image could not be displayed.
+              {copy.imageCouldNotDisplay}
             </p>
             <p>
-              The artwork record is still available.{' '}
-              {firstObservation ?? 'No visual observation is available.'}
+              {copy.artworkRecordAvailable}{' '}
+              {firstObservation ?? copy.noObservation}
             </p>
           </div>
         ) : (

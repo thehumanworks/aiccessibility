@@ -51,6 +51,10 @@
     --ink-faint: #8d8878;
     --gilt: #d9b573;
     --focus: #9fdcff;
+    --control-bg: rgb(255 255 255 / 6%);
+    --control-border: rgb(242 238 230 / 22%);
+    --settings-bg: #0b0d15;
+    --settings-glow: rgb(217 181 115 / 8%);
 
     --display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
       ui-serif, serif;
@@ -78,6 +82,96 @@
     --peek-space: clamp(2.5rem, 8vw, 8rem);
     --speed: 320ms;
     --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  :root[data-font-family="atkinson"] {
+    --display: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+    --body: "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  :root[data-font-family="sans"] {
+    --display: Inter, ui-sans-serif, system-ui, sans-serif;
+    --body: Inter, ui-sans-serif, system-ui, sans-serif;
+  }
+
+  :root[data-font-family="serif"] {
+    --display: "Source Serif 4", ui-serif, Georgia, serif;
+    --body: "Source Serif 4", ui-serif, Georgia, serif;
+  }
+
+  :root[data-font-family="mono"] {
+    --display: "JetBrains Mono", ui-monospace, monospace;
+    --body: "JetBrains Mono", ui-monospace, monospace;
+  }
+
+  :root[data-font-size="small"] {
+    font-size: 90%;
+  }
+
+  :root[data-font-size="medium"] {
+    font-size: 100%;
+  }
+
+  :root[data-font-size="large"] {
+    font-size: 112.5%;
+  }
+
+  :root[data-font-size="extra-large"] {
+    font-size: 125%;
+  }
+
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --wall-deep: #f5f1e8;
+    --wall: #eee8dc;
+    --wall-lit: #fffdf8;
+    --ink: #15171b;
+    --ink-quiet: #45474d;
+    --ink-faint: #63666d;
+    --gilt: #74521c;
+    --focus: #005ea8;
+    --control-bg: rgb(21 23 27 / 5%);
+    --control-border: rgb(21 23 27 / 24%);
+    --settings-bg: #faf7f0;
+    --settings-glow: rgb(116 82 28 / 9%);
+  }
+
+  :root[data-theme="dark"][data-contrast="soft"] {
+    --ink: #ded9cf;
+    --ink-quiet: #b9b3a7;
+    --ink-faint: #979185;
+  }
+
+  :root[data-theme="light"][data-contrast="soft"] {
+    --ink: #303238;
+    --ink-quiet: #55585f;
+    --ink-faint: #6c6f76;
+  }
+
+  :root[data-theme="dark"][data-contrast="high"] {
+    --wall-deep: #000;
+    --wall: #050505;
+    --wall-lit: #0b0b0b;
+    --ink: #fff;
+    --ink-quiet: #f2f2f2;
+    --ink-faint: #dedede;
+    --gilt: #ffd166;
+    --focus: #59d7ff;
+    --control-border: #fff;
+    --settings-bg: #000;
+  }
+
+  :root[data-theme="light"][data-contrast="high"] {
+    --wall-deep: #fff;
+    --wall: #fff;
+    --wall-lit: #fff;
+    --ink: #000;
+    --ink-quiet: #111;
+    --ink-faint: #222;
+    --gilt: #5c3b00;
+    --focus: #004f8a;
+    --control-border: #000;
+    --settings-bg: #fff;
   }
 }
 
@@ -146,25 +240,25 @@
   }
 
   /* Modes shift the light in the room, never the artwork. */
-  .gallery[data-mode="spatial"] {
+  :root:not([data-theme="light"]) .gallery[data-mode="spatial"] {
     --wall: #0b1219;
     --wall-lit: #14212a;
     --gilt: #b9d6de;
   }
 
-  .gallery[data-mode="poetic"] {
+  :root:not([data-theme="light"]) .gallery[data-mode="poetic"] {
     --wall: #140f1c;
     --wall-lit: #221a2e;
     --gilt: #e6b6d0;
   }
 
-  .gallery[data-mode="story"] {
+  :root:not([data-theme="light"]) .gallery[data-mode="story"] {
     --wall: #151009;
     --wall-lit: #251a10;
     --gilt: #eab77c;
   }
 
-  .gallery[data-mode="curatorial"] {
+  :root:not([data-theme="light"]) .gallery[data-mode="curatorial"] {
     --wall: #0a1412;
     --wall-lit: #12201c;
     --gilt: #b4d8c0;
@@ -832,10 +926,10 @@
     background:
       radial-gradient(
         ellipse 90% 45% at 50% 0%,
-        rgb(217 181 115 / 8%),
+        var(--settings-glow),
         transparent 70%
       ),
-      #0b0d15;
+      var(--settings-bg);
     overscroll-behavior: contain;
   }
 
@@ -898,6 +992,50 @@
     color: var(--ink-quiet);
     font-size: 0.86rem;
     line-height: 1.45;
+  }
+
+  .personalization-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem;
+    margin-block-start: 0.35rem;
+  }
+
+  .preference-control {
+    display: grid;
+    gap: 0.28rem;
+    min-width: 0;
+    color: var(--ink-quiet);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+
+  .preference-control select {
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.55rem 2.2rem 0.55rem 0.72rem;
+    border: 1px solid var(--control-border);
+    border-radius: 0.65rem;
+    color: var(--ink);
+    background: var(--control-bg);
+    font: inherit;
+    font-weight: 400;
+    cursor: pointer;
+  }
+
+  .preference-control-language {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 34rem) {
+    .personalization-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .preference-control-language {
+      grid-column: auto;
+    }
   }
 
   .provenance-list {

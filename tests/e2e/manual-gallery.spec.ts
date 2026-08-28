@@ -40,6 +40,7 @@ test('artwork aspect ratios do not move the label or speaking style', async ({
   ]) {
     await page.setViewportSize(viewport);
     await page.goto('/');
+    await page.evaluate(() => document.fonts.ready);
     await expect(page.locator('.artwork-image')).toBeVisible();
     await expect(page.locator('.artwork-figure')).toHaveCSS(
       'transform',
@@ -99,7 +100,7 @@ test('the cog opens an accessible modal that shares the Speaking style select', 
   const cog = page.getByRole('button', { name: 'Gallery settings' });
   await expect(cog).toBeInViewport();
 
-  // The wall label owns the styles themselves, and no native select.
+  // Personalization selects live in settings; the wall keeps only the style radios.
   await expect(page.locator('select')).toHaveCount(0);
   const wallLabelGroup = page
     .locator('.gallery')
@@ -122,7 +123,7 @@ test('the cog opens an accessible modal that shares the Speaking style select', 
     '4Story',
     '5Curatorial',
   ]);
-  await expect(dialog.locator('select')).toHaveCount(0);
+  await expect(dialog.locator('select')).toHaveCount(5);
 
   // The background cannot be operated while the modal is open.
   await expect(page.locator('.gallery')).toHaveAttribute('inert', '');
