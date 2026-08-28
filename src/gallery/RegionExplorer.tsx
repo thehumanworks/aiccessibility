@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-import { getCurrentRegionAnalysis, getVisibleRegion } from './regions';
+import { getVisibleRegion } from './regions';
 import type { RegionBounds } from './types';
 import { useGallery } from './GalleryProvider';
 
@@ -54,35 +54,26 @@ export function RegionOverlay() {
 
 export function RegionExplorer() {
   const { state, controller } = useGallery();
-  const analysis = getCurrentRegionAnalysis(state);
   const focusedRegion = state.focusedRegionId
     ? getVisibleRegion(state, state.focusedRegionId)
     : undefined;
-  const busy = analysis.phase === 'loading' || analysis.phase === 'analyzing';
+
+  if (!focusedRegion) return null;
 
   return (
     <div className="region-explorer" aria-label="Artwork regions">
       <div className="region-actions">
-        {focusedRegion ? (
-          <button
-            type="button"
-            className="region-action"
-            onClick={() => controller.clearRegionFocus()}
-          >
-            Show whole artwork
-          </button>
-        ) : null}
+        <button
+          type="button"
+          className="region-action"
+          onClick={() => controller.clearRegionFocus()}
+        >
+          Show whole artwork
+        </button>
       </div>
-      <p className="region-privacy-note" aria-live="polite">
-        {busy
-          ? `Analyzing locally ${Math.round(analysis.progress * 100)}% — ${analysis.message}`
-          : 'Ask your browser agent to zoom into any visible detail. The vision models run on this device only when requested.'}
+      <p className="region-focus-caption">
+        <strong>{focusedRegion.label}.</strong> {focusedRegion.description}
       </p>
-      {focusedRegion ? (
-        <p className="region-focus-caption">
-          <strong>{focusedRegion.label}.</strong> {focusedRegion.description}
-        </p>
-      ) : null}
     </div>
   );
 }

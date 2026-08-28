@@ -164,7 +164,7 @@ describe('AIccessibility gallery shell', () => {
     expect(document.getElementById('artwork-stage')).not.toBeNull();
   });
 
-  it('starts with a clean canvas and explains agent-triggered local zoom', () => {
+  it('starts with a clean canvas and no idle region overlay', () => {
     const { container } = render(<App />);
 
     expect(screen.queryByRole('button', { name: /^Focus region:/ })).toBeNull();
@@ -173,9 +173,7 @@ describe('AIccessibility gallery shell', () => {
       'data-focused-region',
       '',
     );
-    expect(
-      screen.getByText(/Ask your browser agent to zoom into any visible detail/),
-    ).toBeVisible();
+    expect(container.querySelector('.region-explorer')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Show whole artwork' })).toBeNull();
   });
 });

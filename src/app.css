@@ -538,7 +538,6 @@
     opacity: 0.45;
   }
 
-  .region-privacy-note,
   .region-focus-caption {
     max-width: min(42rem, 94vw);
     text-wrap: balance;
