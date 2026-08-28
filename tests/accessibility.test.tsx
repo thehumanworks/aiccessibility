@@ -392,6 +392,65 @@ describe('Speaking style selector', () => {
 });
 
 describe('framed carousel', () => {
+  it('supports a horizontal touch swipe and direct progress-button navigation', () => {
+    render(<App />);
+    const stage = artworkStage();
+
+    fireEvent.pointerDown(stage, {
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true,
+      clientX: 320,
+      clientY: 200,
+    });
+    fireEvent.pointerUp(stage, {
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true,
+      clientX: 80,
+      clientY: 200,
+    });
+    expect(
+      screen.getByRole('heading', {
+        level: 2,
+        name: 'The Boulevard Montmartre on a Winter Morning',
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.pointerDown(stage, {
+      pointerId: 2,
+      pointerType: 'touch',
+      isPrimary: true,
+      clientX: 320,
+      clientY: 200,
+    });
+    fireEvent.pointerUp(stage, {
+      pointerId: 2,
+      pointerType: 'touch',
+      isPrimary: true,
+      clientX: 80,
+      clientY: 205,
+    });
+    expect(
+      screen.getByRole('heading', {
+        level: 2,
+        name: 'Young Woman with a Water Pitcher',
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /03 \/ 06 · A Gorge in the Mountains/,
+      }),
+    );
+    expect(
+      screen.getByRole('heading', {
+        level: 2,
+        name: 'A Gorge in the Mountains (Kauterskill Clove)',
+      }),
+    ).toBeInTheDocument();
+  });
+
   it('keeps the peeks on the real neighbours as the collection turns', () => {
     render(<App />);
 
