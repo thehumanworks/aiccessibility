@@ -305,6 +305,44 @@ test('the wall-label styles answer arrows, Home, End, and the 1-5 number keys', 
   await expect(page.locator('.gallery')).toHaveAttribute('data-mode', 'poetic');
 });
 
+test('light mode keeps speaking-style accents distinct and artwork positions visible', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = 'light';
+  });
+
+  const gallery = page.locator('.gallery');
+  const group = gallery.getByRole('radiogroup', { name: 'Speaking style' });
+  const expectedAccents = [
+    ['Literal', 'literal', '#74521c'],
+    ['Spatial', 'spatial', '#2d6672'],
+    ['Poetic', 'poetic', '#8f466f'],
+    ['Story', 'story', '#95521f'],
+    ['Curatorial', 'curatorial', '#376a4e'],
+  ] as const;
+
+  for (const [name, mode, accent] of expectedAccents) {
+    await group.getByRole('radio', { name }).click();
+    await expect(gallery).toHaveAttribute('data-mode', mode);
+    expect(
+      await gallery.evaluate((element) =>
+        getComputedStyle(element).getPropertyValue('--gilt').trim(),
+      ),
+    ).toBe(accent);
+  }
+
+  const inactiveProgress = page
+    .locator('.carousel-progress-bar:not([data-active="true"])')
+    .first();
+  expect(
+    await inactiveProgress.evaluate(
+      (element) => getComputedStyle(element, '::before').backgroundColor,
+    ),
+  ).toBe('rgba(21, 23, 27, 0.24)');
+});
+
 test('keyboard-only visitors can reach the artwork, the modal, and back out', async ({
   page,
 }) => {

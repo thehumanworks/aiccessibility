@@ -286,6 +286,24 @@
     --gilt: #b4d8c0;
   }
 
+  /* Light walls keep the same mode identities as the dark room, using deeper
+     accents that remain legible both as text and beneath selected-pill text. */
+  :root[data-theme="light"] .gallery[data-mode="spatial"] {
+    --gilt: #2d6672;
+  }
+
+  :root[data-theme="light"] .gallery[data-mode="poetic"] {
+    --gilt: #8f466f;
+  }
+
+  :root[data-theme="light"] .gallery[data-mode="story"] {
+    --gilt: #95521f;
+  }
+
+  :root[data-theme="light"] .gallery[data-mode="curatorial"] {
+    --gilt: #376a4e;
+  }
+
   .skip-link {
     position: fixed;
     z-index: 40;
@@ -752,7 +770,7 @@
     inset-inline: 0.2rem;
     height: 2px;
     border-radius: 1px;
-    background: rgb(242 238 230 / 16%);
+    background: var(--control-border);
     content: "";
   }
 
