@@ -416,6 +416,20 @@
     outline: none;
   }
 
+  .stage-carousel[data-dragging="true"] {
+    cursor: grabbing;
+  }
+
+  .stage-carousel > .artwork-figure,
+  .stage-carousel > .carousel-peek {
+    translate: var(--carousel-drag-x, 0px) 0;
+  }
+
+  .stage-carousel[data-dragging="true"] > .artwork-figure,
+  .stage-carousel[data-dragging="true"] > .carousel-peek {
+    will-change: translate;
+  }
+
   .stage-carousel > .artwork-figure {
     grid-area: 1 / 1;
     align-self: stretch;
@@ -1183,6 +1197,11 @@
   }
 
   @media (prefers-reduced-motion: no-preference) {
+    .stage-carousel[data-dragging="false"] > .artwork-figure,
+    .stage-carousel[data-dragging="false"] > .carousel-peek {
+      transition: translate 160ms var(--ease);
+    }
+
     /* Motion owns every entrance and exit; CSS keeps only hover/focus tint. */
     .gallery,
     .settings-cog,

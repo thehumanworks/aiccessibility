@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import { type KeyboardEvent, useId, useRef } from 'react';
+import { type KeyboardEvent, useEffect, useId, useRef } from 'react';
 
 import type { GalleryController } from './controller';
 import { getModeDefinition, getUiCopy } from './i18n';
@@ -13,6 +13,33 @@ interface SpeakingStyleSelectProps {
   /* `label` sits under the wall label; `settings` sits in the full-viewport
      settings. Both drive the same controller, so they stay in step. */
   variant: 'label' | 'settings';
+}
+
+interface NumberShortcutEvent {
+  altKey: boolean;
+  ctrlKey: boolean;
+  key: string;
+  metaKey: boolean;
+  repeat: boolean;
+  shiftKey: boolean;
+}
+
+const editableShortcutSelector =
+  'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], [role="combobox"]';
+
+function getNumberShortcutIndex(event: NumberShortcutEvent): number | null {
+  if (
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey ||
+    event.repeat ||
+    !/^[1-5]$/.test(event.key)
+  ) {
+    return null;
+  }
+
+  return Number(event.key) - 1;
 }
 
 /* A radiogroup rather than a listbox or a native select: five styles, always
@@ -35,6 +62,39 @@ export function SpeakingStyleSelect({
   const selectedIndex = experienceModes.indexOf(mode);
   const copy = getUiCopy(language);
 
+  useEffect(() => {
+    /* The numbered wall control is always mounted, so it owns the one global
+       shortcut listener. Settings keeps its local radio behavior without
+       installing a duplicate listener. */
+    if (variant !== 'label') {
+      return;
+    }
+
+    const handleGlobalNumberShortcut = (event: globalThis.KeyboardEvent) => {
+      const index = getNumberShortcutIndex(event);
+      const target = event.target;
+      if (
+        event.defaultPrevented ||
+        event.isComposing ||
+        index === null ||
+        (target instanceof Element && target.closest(editableShortcutSelector))
+      ) {
+        return;
+      }
+
+      const requested = experienceModes[index];
+      if (!requested) {
+        return;
+      }
+
+      event.preventDefault();
+      controller.setExperienceMode(requested);
+    };
+
+    window.addEventListener('keydown', handleGlobalNumberShortcut);
+    return () => window.removeEventListener('keydown', handleGlobalNumberShortcut);
+  }, [controller, variant]);
+
   // Selection follows focus, so choosing and moving are the same gesture.
   const select = (index: number) => {
     const requested = experienceModes[index];
@@ -47,7 +107,7 @@ export function SpeakingStyleSelect({
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.altKey || event.ctrlKey || event.metaKey) {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
       return;
     }
 
@@ -87,8 +147,10 @@ export function SpeakingStyleSelect({
     }
 
     // 1-5 jumps straight to the indexed style from anywhere in the group.
-    const index = Number.parseInt(event.key, 10) - 1;
-    if (Number.isInteger(index) && index >= 0 && index < count) {
+    const index = event.nativeEvent.isComposing
+      ? null
+      : getNumberShortcutIndex(event);
+    if (index !== null) {
       event.preventDefault();
       select(index);
     }
@@ -127,6 +189,7 @@ export function SpeakingStyleSelect({
               type="button"
               role="radio"
               aria-checked={selected}
+              aria-keyshortcuts={String(index + 1)}
               aria-describedby={`${groupId}-description-${index}`}
               className="style-select-option"
               data-selected={selected}

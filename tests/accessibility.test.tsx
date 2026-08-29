@@ -282,6 +282,49 @@ describe('Speaking style selector', () => {
     });
   });
 
+  it('maps the numbered styles globally without stealing focus', () => {
+    render(<App />);
+    const stage = artworkStage();
+    stage.focus();
+
+    fireEvent.keyDown(stage, { key: '4' });
+
+    expect(selectedStyle(wallLabelGroup())).toBe('Story');
+    expect(document.querySelector('.gallery')).toHaveAttribute(
+      'data-mode',
+      'story',
+    );
+    expect(document.activeElement).toBe(stage);
+    expect(
+      within(wallLabelGroup())
+        .getAllByRole('radio')
+        .map((option) => option.getAttribute('aria-keyshortcuts')),
+    ).toEqual(['1', '2', '3', '4', '5']);
+  });
+
+  it('keeps global number shortcuts out of editable controls', () => {
+    render(<App />);
+    chooseStyle(wallLabelGroup(), 'Story');
+    const dialog = openSettings();
+    const fontFamily = within(dialog).getByRole('combobox', {
+      name: 'Font family',
+    });
+    fontFamily.focus();
+
+    fireEvent.keyDown(fontFamily, { key: '2' });
+    expect(selectedStyle(wallLabelGroup())).toBe('Story');
+    expect(document.activeElement).toBe(fontFamily);
+
+    const heading = within(dialog).getByRole('heading', {
+      level: 2,
+      name: 'Gallery settings',
+    });
+    heading.focus();
+    fireEvent.keyDown(heading, { key: '3' });
+    expect(selectedStyle(wallLabelGroup())).toBe('Poetic');
+    expect(document.activeElement).toBe(heading);
+  });
+
   it('selects the focused option on Space and Enter', () => {
     render(<App />);
 
@@ -312,7 +355,12 @@ describe('Speaking style selector', () => {
       expect(selectedStyle(wallLabelGroup())).toBe('Poetic');
     }
 
-    for (const modifier of ['metaKey', 'ctrlKey', 'altKey'] as const) {
+    for (const modifier of [
+      'metaKey',
+      'ctrlKey',
+      'altKey',
+      'shiftKey',
+    ] as const) {
       fireEvent.keyDown(document.activeElement!, {
         key: '1',
         [modifier]: true,
@@ -403,13 +451,30 @@ describe('framed carousel', () => {
       clientX: 320,
       clientY: 200,
     });
+    fireEvent.pointerMove(stage, {
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true,
+      clientX: 280,
+      clientY: 200,
+    });
+    expect(stage).toHaveAttribute('data-dragging', 'true');
+    expect(stage.style.getPropertyValue('--carousel-drag-x')).toBe('-40px');
+    expect(
+      screen.getByRole('heading', {
+        level: 2,
+        name: 'The Boulevard Montmartre on a Winter Morning',
+      }),
+    ).toBeInTheDocument();
     fireEvent.pointerUp(stage, {
       pointerId: 1,
       pointerType: 'mouse',
       isPrimary: true,
-      clientX: 80,
+      clientX: 280,
       clientY: 200,
     });
+    expect(stage).toHaveAttribute('data-dragging', 'false');
+    expect(stage.style.getPropertyValue('--carousel-drag-x')).toBe('0px');
     expect(
       screen.getByRole('heading', {
         level: 2,

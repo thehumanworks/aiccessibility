@@ -2,6 +2,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import {
   type KeyboardEvent,
   type PointerEvent,
+  useEffect,
   useRef,
 } from 'react';
 
@@ -21,7 +22,11 @@ interface StageCarouselProps {
 }
 
 interface SwipeStart {
+  axis: 'pending' | 'horizontal' | 'vertical';
+  lastAt: number;
+  lastX: number;
   pointerId: number;
+  recentVelocityX: number;
   x: number;
   y: number;
   startedAt: number;
@@ -29,6 +34,16 @@ interface SwipeStart {
 
 const interactiveSelector =
   'a, button, input, select, textarea, [contenteditable], [data-no-gallery-swipe]';
+const directionSlop = 6;
+
+function setDragFeedback(
+  stage: HTMLDivElement,
+  offset: number,
+  dragging: boolean,
+) {
+  stage.dataset.dragging = dragging ? 'true' : 'false';
+  stage.style.setProperty('--carousel-drag-x', `${offset}px`);
+}
 
 interface CarouselPeekProps {
   artwork: Artwork | undefined;
@@ -137,12 +152,21 @@ export function StageCarousel({
   onNavigate,
 }: StageCarouselProps) {
   const reduceMotion = useReducedMotion() ?? false;
+  const stageRef = useRef<HTMLDivElement>(null);
   const swipeStart = useRef<SwipeStart | null>(null);
   const swipeLocked = useRef(false);
   const count = artworks.length;
   const artwork = artworks[currentIndex];
   const previousArtwork = artworks[(currentIndex - 1 + count) % count];
   const nextArtwork = artworks[(currentIndex + 1) % count];
+
+  useEffect(() => {
+    swipeStart.current = null;
+    const stage = stageRef.current;
+    if (stage) {
+      setDragFeedback(stage, 0, false);
+    }
+  }, [currentIndex]);
 
   if (!artwork) {
     return null;
@@ -152,6 +176,7 @@ export function StageCarousel({
     const target = event.target as Element;
     if (
       swipeLocked.current ||
+      count <= 1 ||
       !event.isPrimary ||
       (event.pointerType === 'mouse' && event.button !== 0) ||
       target.closest(interactiveSelector)
@@ -160,17 +185,75 @@ export function StageCarousel({
     }
 
     swipeStart.current = {
+      axis: 'pending',
+      lastAt: event.timeStamp,
+      lastX: event.clientX,
       pointerId: event.pointerId,
+      recentVelocityX: 0,
       x: event.clientX,
       y: event.clientY,
       startedAt: event.timeStamp,
     };
+    setDragFeedback(event.currentTarget, 0, true);
     event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const trackSwipe = (event: PointerEvent<HTMLDivElement>) => {
+    const start = swipeStart.current;
+    if (!start || start.pointerId !== event.pointerId) {
+      return;
+    }
+
+    const horizontalTravel = event.clientX - start.x;
+    const verticalTravel = event.clientY - start.y;
+    const horizontalDistance = Math.abs(horizontalTravel);
+    const verticalDistance = Math.abs(verticalTravel);
+
+    if (
+      start.axis === 'pending' &&
+      Math.max(horizontalDistance, verticalDistance) >= directionSlop
+    ) {
+      if (horizontalDistance >= verticalDistance * 1.1) {
+        start.axis = 'horizontal';
+      } else if (verticalDistance >= horizontalDistance * 1.1) {
+        start.axis = 'vertical';
+      }
+    }
+
+    const elapsed = Math.max(1, event.timeStamp - start.lastAt);
+    const instantaneousVelocity = (event.clientX - start.lastX) / elapsed;
+    start.recentVelocityX =
+      start.recentVelocityX === 0
+        ? instantaneousVelocity
+        : start.recentVelocityX * 0.35 + instantaneousVelocity * 0.65;
+    start.lastX = event.clientX;
+    start.lastAt = event.timeStamp;
+
+    if (start.axis === 'vertical') {
+      setDragFeedback(event.currentTarget, 0, false);
+      return;
+    }
+
+    if (start.axis !== 'horizontal') {
+      return;
+    }
+
+    event.preventDefault();
+    const maximumPreview = Math.min(
+      260,
+      Math.max(80, event.currentTarget.clientWidth * 0.32),
+    );
+    const previewOffset = Math.min(
+      maximumPreview,
+      Math.max(-maximumPreview, horizontalTravel),
+    );
+    setDragFeedback(event.currentTarget, previewOffset, true);
   };
 
   const cancelSwipe = (event: PointerEvent<HTMLDivElement>) => {
     if (swipeStart.current?.pointerId === event.pointerId) {
       swipeStart.current = null;
+      setDragFeedback(event.currentTarget, 0, false);
     }
   };
 
@@ -181,18 +264,28 @@ export function StageCarousel({
     }
 
     swipeStart.current = null;
+    setDragFeedback(event.currentTarget, 0, false);
     const horizontalTravel = event.clientX - start.x;
     const verticalTravel = event.clientY - start.y;
     const horizontalDistance = Math.abs(horizontalTravel);
     const elapsed = Math.max(1, event.timeStamp - start.startedAt);
     const requiredDistance = Math.min(
-      96,
-      Math.max(48, event.currentTarget.clientWidth * 0.14),
+      56,
+      Math.max(28, event.currentTarget.clientWidth * 0.055),
     );
     const isHorizontal =
-      horizontalDistance >= Math.abs(verticalTravel) * 1.25;
+      start.axis !== 'vertical' &&
+      horizontalDistance >= Math.abs(verticalTravel) * 1.1;
+    const recentVelocity =
+      event.timeStamp - start.lastAt <= 120
+        ? Math.abs(start.recentVelocityX)
+        : 0;
+    const releaseVelocity = Math.max(
+      recentVelocity,
+      horizontalDistance / elapsed,
+    );
     const isFastFlick =
-      horizontalDistance >= 32 && horizontalDistance / elapsed >= 0.5;
+      horizontalDistance >= 18 && releaseVelocity >= 0.35;
 
     if (!isHorizontal || (horizontalDistance < requiredDistance && !isFastFlick)) {
       return;
@@ -223,9 +316,11 @@ export function StageCarousel({
   return (
     <>
       <div
+        ref={stageRef}
         id="artwork-stage"
         className="stage-carousel"
         data-motion={reduceMotion ? 'reduced' : 'full'}
+        data-dragging="false"
         role="region"
         aria-roledescription="carousel"
         aria-label={`${navigationLabel}: ${artwork.title}`}
@@ -233,6 +328,7 @@ export function StageCarousel({
         tabIndex={0}
         onKeyDown={handleKeyboardNavigation}
         onPointerDown={startSwipe}
+        onPointerMove={trackSwipe}
         onPointerCancel={cancelSwipe}
         onLostPointerCapture={cancelSwipe}
         onPointerUp={finishSwipe}

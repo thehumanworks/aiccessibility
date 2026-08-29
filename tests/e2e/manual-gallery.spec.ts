@@ -41,22 +41,26 @@ async function swipeArtwork(page: Page, direction: 'next' | 'previous') {
 async function dragArtworkWithMouse(
   page: Page,
   direction: 'next' | 'previous',
+  startSelector: string,
 ) {
-  const stage = page.locator('#artwork-stage');
-  const box = await stage.boundingBox();
+  const startTarget = page.locator(startSelector);
+  const box = await startTarget.boundingBox();
   if (!box) {
-    throw new Error('The artwork stage is not visible.');
+    throw new Error(`The drag target ${startSelector} is not visible.`);
   }
 
-  const startX =
-    direction === 'next' ? box.x + box.width * 0.78 : box.x + box.width * 0.22;
-  const endX =
-    direction === 'next' ? box.x + box.width * 0.22 : box.x + box.width * 0.78;
+  const startX = box.x + box.width * 0.5;
+  const endX = startX + (direction === 'next' ? -60 : 60);
   const y = box.y + box.height * 0.5;
 
   await page.mouse.move(startX, y);
   await page.mouse.down();
   await page.mouse.move(endX, y, { steps: 8 });
+  const liveOffset = await page
+    .locator('.stage-carousel > .artwork-figure')
+    .last()
+    .evaluate((figure) => Number.parseFloat(getComputedStyle(figure).translate));
+  expect(Math.abs(liveOffset)).toBeGreaterThan(50);
   await page.mouse.up();
 }
 
@@ -66,7 +70,7 @@ test('desktop mouse drags move the carousel in both directions', async ({
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto('/');
 
-  await dragArtworkWithMouse(page, 'next');
+  await dragArtworkWithMouse(page, 'next', '.artwork-image');
   await expect(
     page.getByRole('heading', {
       level: 2,
@@ -81,7 +85,7 @@ test('desktop mouse drags move the carousel in both directions', async ({
   );
   await expect(page.locator('.stage-carousel > .artwork-figure')).toHaveCount(1);
 
-  await dragArtworkWithMouse(page, 'previous');
+  await dragArtworkWithMouse(page, 'previous', '.artwork-label');
   await expect(
     page.getByRole('heading', {
       level: 2,
@@ -361,6 +365,39 @@ test('the wall-label styles answer arrows, Home, End, and the 1-5 number keys', 
   // A pointer reaches the same styles.
   await option('Poetic').click();
   await expect(page.locator('.gallery')).toHaveAttribute('data-mode', 'poetic');
+});
+
+test('number keys select speaking styles across the gallery without moving focus', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const gallery = page.locator('.gallery');
+  const stage = page.locator('#artwork-stage');
+  await stage.focus();
+
+  await page.keyboard.press('4');
+  await expect(gallery).toHaveAttribute('data-mode', 'story');
+  await expect(stage).toBeFocused();
+  await expect(
+    gallery.getByRole('radio', { name: 'Story' }),
+  ).toHaveAttribute('aria-keyshortcuts', '4');
+
+  await page.getByRole('button', { name: 'Gallery settings' }).click();
+  const dialog = page.getByRole('dialog');
+  const heading = dialog.getByRole('heading', {
+    level: 2,
+    name: 'Gallery settings',
+  });
+  await expect(heading).toBeFocused();
+  await page.keyboard.press('3');
+  await expect(gallery).toHaveAttribute('data-mode', 'poetic');
+  await expect(heading).toBeFocused();
+
+  const fontFamily = dialog.getByRole('combobox', { name: 'Font family' });
+  await fontFamily.focus();
+  await page.keyboard.press('2');
+  await expect(gallery).toHaveAttribute('data-mode', 'poetic');
+  await expect(fontFamily).toBeFocused();
 });
 
 test('light mode keeps speaking-style accents distinct and artwork positions visible', async ({
