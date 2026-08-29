@@ -59,10 +59,10 @@
 
 - [x] **8. Build the provenance-bound companion canvas and adaptive presentation**
   Spec ref: `spec.md > Architecture > 6. Interpretation layer`; `prd.md > Epic 3`; `prd.md > Epic 5`
-  What to build: A persistent companion canvas for provenance-bound Observed, Known, Interpreted, and Imagined segments; source binding for Known content; safe plain-text publish/clear tools; one atomic adaptive-presentation action for mode/readability preferences; and a concise activity receipt with Undo for human and agent changes.
+  What to build: A persistent companion canvas for provenance-bound Observed, Known, Interpreted, and Imagined segments; source binding for Known content; safe plain-text publish/clear tools; one atomic adaptive-presentation action for mode/readability preferences; and a bounded Site Tools activity log with Undo for human and agent changes.
   Acceptance: The agent’s contribution remains visible and revisitable; Known claims resolve to site-owned sources; arbitrary markup is rejected; atomic changes return a before/after diff; Undo is bounded and reversible; mode switches preserve artwork/focus; visual transformations remain readable and reduced-motion safe.
-  Verify: Unit/contract/component tests for every provenance category, atomic change, receipt, and Undo path; axe scan per mode; live prompt “What are you inventing, and what do we actually know?”
-  Completion note: Implemented a responsive source-bound companion canvas, optional-mode publishing, atomic multi-setting presentation, localized bounded activity receipt, dismiss/Undo, response context binding to artwork/focus/language/style, stale-revision rejection, safe literal text, fixed source links, compact native companion dialog, and desktop side-by-side composition. Full unit/E2E and hands-on desktop/mobile checks pass.
+  Verify: Unit/contract/component tests for every provenance category, atomic change, activity-log, and Undo path; axe scan per mode; live prompt “What are you inventing, and what do we actually know?”
+  Completion note: Implemented a responsive source-bound companion canvas, optional-mode publishing, atomic multi-setting presentation, a bounded Site Tools activity log and Undo without transient action banners, response context binding to artwork/focus/language/style, stale-revision rejection, safe literal text, fixed source links, compact native companion dialog, and desktop side-by-side composition. Full unit/E2E and hands-on desktop/mobile checks pass.
 
 - [x] **9. Finish human-readable, human-ratified region exploration**
   Spec ref: `spec.md > Site Tool Contracts > focus_region`; `prd.md > Epic 4`

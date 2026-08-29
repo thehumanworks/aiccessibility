@@ -392,9 +392,8 @@ test('atomic adaptation and the provenance companion form a reversible shared jo
     ),
   ).not.toBe(true);
 
-  const receipt = page.locator('.activity-receipt');
-  await expect(receipt).toContainText('ChatGPT changed the gallery:');
-  await expect(receipt).toContainText('Published a shared response.');
+  await expect(page.locator('.activity-receipt')).toHaveCount(0);
+  await expect(page.getByText(/changed the gallery/i)).toHaveCount(0);
   const activity = await page.evaluate(() =>
     window.galleryToolHarness.execute('get_session_activity', {}),
   );

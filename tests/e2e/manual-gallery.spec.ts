@@ -369,6 +369,8 @@ test('the wall-label styles answer arrows, Home, End, and the 1-5 number keys', 
   // A pointer reaches the same styles.
   await option('Poetic').click();
   await expect(page.locator('.gallery')).toHaveAttribute('data-mode', 'poetic');
+  await expect(page.locator('.activity-receipt')).toHaveCount(0);
+  await expect(page.getByText(/you changed the gallery/i)).toHaveCount(0);
 });
 
 test('number keys select speaking styles across the gallery without moving focus', async ({
@@ -674,4 +676,36 @@ test('the first encounter offers ChatGPT guidance and keyboard-first authored de
   await page.keyboard.press('Enter');
   await expect(page.locator('.region-focus-marker')).toHaveCount(0);
   await expect(page.getByText('Gallery-authored')).toHaveCount(0);
+});
+
+test('the mobile AI guide stays above a portrait painting', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/?artwork=vermeer-woman-with-water-pitcher');
+
+  const guide = page.locator('.experience-guide');
+  await guide.locator('summary').click();
+  await expect(guide.locator('.experience-guide-body')).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const guideBody = document.querySelector('.experience-guide-body');
+        const artwork = document.querySelector('.artwork-plate');
+        if (!guideBody || !artwork) return false;
+
+        const guideRect = guideBody.getBoundingClientRect();
+        const artworkRect = artwork.getBoundingClientRect();
+        const overlapLeft = Math.max(guideRect.left, artworkRect.left);
+        const overlapTop = Math.max(guideRect.top, artworkRect.top);
+        const overlapRight = Math.min(guideRect.right, artworkRect.right);
+        const overlapBottom = Math.min(guideRect.bottom, artworkRect.bottom);
+        if (overlapLeft >= overlapRight || overlapTop >= overlapBottom) return false;
+
+        const topmost = document.elementFromPoint(
+          (overlapLeft + overlapRight) / 2,
+          (overlapTop + overlapBottom) / 2,
+        );
+        return Boolean(topmost?.closest('.experience-guide-body'));
+      }),
+    )
+    .toBe(true);
 });

@@ -11,8 +11,9 @@ Last reviewed: 2026-08-29.
 - Agent-authored companion content is bounded plain text rendered by React.
   Observed and Known content is resolved from checked-in statement IDs and
   fixed source records.
-- The activity receipt stores only controlled action summaries and revision
-  transitions, never prompts or published response text.
+- The Site Tools activity log stores only controlled action summaries and
+  revision transitions, never prompts or published response text. It is not
+  rendered as a transient banner in the gallery.
 - Production headers deny page-level camera, microphone, and geolocation,
   prevent MIME sniffing, restrict referrers, and apply a CSP for self-hosted
   assets, bundled workers/WASM, and revision-pinned Hugging Face model files.

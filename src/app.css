@@ -335,6 +335,8 @@
   }
 
   .masthead {
+    /* Let its fixed controls join the gallery's root stacking context. */
+    z-index: auto;
     display: grid;
     justify-items: center;
     gap: 0.35rem;
@@ -832,77 +834,7 @@
     text-transform: none;
   }
 
-  .activity-receipt {
-    position: fixed;
-    z-index: 12;
-    inset-inline-start: clamp(0.65rem, 2vw, 1.5rem);
-    inset-block-start: 3rem;
-    width: min(24rem, calc(100vw - 1.3rem));
-    border: 1px solid var(--control-border);
-    border-radius: 0.75rem;
-    color: var(--ink-quiet);
-    background: color-mix(in srgb, var(--wall-deep) 92%, transparent);
-    box-shadow: 0 0.8rem 2rem rgb(0 0 0 / 30%);
-    font-size: 0.7rem;
-    backdrop-filter: blur(0.8rem);
-  }
-
-  .activity-receipt details {
-    padding-inline-end: 2rem;
-  }
-
-  .activity-receipt summary {
-    padding: 0.55rem 0.75rem;
-    cursor: pointer;
-  }
-
-  .activity-origin {
-    color: var(--gilt);
-    font-weight: 700;
-  }
-
-  .activity-detail {
-    display: flex;
-    gap: 0.7rem;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 0.75rem 0.65rem;
-  }
-
-  .activity-undo {
-    min-height: 2rem;
-    padding: 0.3rem 0.65rem;
-    border: 1px solid var(--control-border);
-    border-radius: 999px;
-    color: var(--ink);
-    background: transparent;
-    cursor: pointer;
-  }
-
-  .activity-dismiss {
-    position: absolute;
-    inset-block-start: 0.28rem;
-    inset-inline-end: 0.3rem;
-    display: grid;
-    place-items: center;
-    width: 1.8rem;
-    height: 1.8rem;
-    padding: 0;
-    border: 0;
-    border-radius: 50%;
-    color: var(--ink-faint);
-    background: transparent;
-    font-size: 1rem;
-    cursor: pointer;
-  }
-
-  .activity-dismiss:hover,
-  .activity-dismiss:focus-visible {
-    color: var(--gilt);
-  }
-
   .companion-panel,
-  .activity-receipt,
   .experience-guide-body,
   .region-focus-detail {
     -webkit-user-select: text;
@@ -912,10 +844,6 @@
   @media (max-width: 70rem) {
     .hall[data-companion="true"] {
       grid-template-columns: minmax(0, 1fr);
-    }
-
-    .activity-receipt {
-      width: min(20rem, calc(100vw - 1.3rem));
     }
   }
 
@@ -1697,7 +1625,6 @@
     .region-action,
     .region-option,
     .companion-panel,
-    .activity-receipt,
     .experience-guide-body {
       border: 1px solid CanvasText;
     }

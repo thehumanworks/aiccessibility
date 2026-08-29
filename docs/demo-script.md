@@ -66,12 +66,15 @@ link and that generated text cannot claim Known provenance.
 
 ### 1:40–2:10 — Shared state is accountable and reversible
 
-Open the activity receipt. Explain that it stores only controlled action names,
-origins, and revision transitions—not the visitor’s prompt or response text.
+Ask ChatGPT what changed, then ask it to undo the last change. Explain that the
+Site Tools activity log stores only controlled action names, origins, and
+revision transitions—not the visitor’s prompt or response text. The log and
+Undo remain available to the agent without adding a transient action banner to
+the gallery.
 
-Use **Undo last change** and show the visible state restoration. Mention stale
-revision protection and newest-request-wins cancellation as the reliability
-layer for simultaneous human/agent operation.
+Show the visible state restoration. Mention stale revision protection and
+newest-request-wins cancellation as the reliability layer for simultaneous
+human/agent operation.
 
 ### 2:10–2:40 — The encounter remains open-ended
 

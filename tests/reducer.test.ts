@@ -160,7 +160,7 @@ describe('galleryReducer', () => {
     });
   });
 
-  it('keeps a bounded redacted activity receipt and performs one-step undo', () => {
+  it('keeps a bounded redacted activity log and performs one-step undo', () => {
     let state = createInitialGalleryState();
     state = galleryReducer(state, {
       type: 'render-interpretation',

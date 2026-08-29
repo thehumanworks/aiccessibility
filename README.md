@@ -22,7 +22,9 @@ Seventeen focused Site Tools are registered on the top-level document. Human
 controls and tools use exactly the same reducer-backed state graph. The agent can
 read trusted context, navigate by intent, configure several presentation settings
 atomically, publish a provenance-labelled response into the gallery, inspect a
-redacted activity receipt, and undo one reversible change.
+redacted session activity log, and undo one reversible change. Those audit and
+undo capabilities stay available to Site Tools without adding transient action
+banners to the gallery itself.
 
 `publish_gallery_response` is deliberately constrained. Observed and Known
 segments must reference statement IDs returned by `get_artwork_context`; the
@@ -163,7 +165,7 @@ Key files:
   manual/WebMCP carousel state
 - [`src/collection/artworks.ts`](src/collection/artworks.ts) — the six typed records
 - [`src/gallery/CompanionPanel.tsx`](src/gallery/CompanionPanel.tsx) — shared
-  provenance canvas, source links, activity receipt, and Undo
+  provenance canvas and source links
 - [`evals/webmcp-intent-corpus.json`](evals/webmcp-intent-corpus.json) —
   deterministic expected/disallowed tool and journey cases
 - [`docs/artwork-rights.md`](docs/artwork-rights.md) — the rights ledger

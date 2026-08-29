@@ -3,10 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getArtwork, listArtworks } from './collection/repository';
 import { AccessibilityStatus } from './gallery/AccessibilityStatus';
-import {
-  ActivityReceipt,
-  CompanionPanel,
-} from './gallery/CompanionPanel';
+import { CompanionPanel } from './gallery/CompanionPanel';
 import { ExperienceGuide } from './gallery/ExperienceGuide';
 import { GalleryProvider, useGallery } from './gallery/GalleryProvider';
 import { getUiCopy, localizeArtwork, localizeRegion } from './gallery/i18n';
@@ -171,8 +168,6 @@ function GalleryExperience() {
           />
           <CompanionPanel suspended={settingsOpen} />
         </main>
-
-        <ActivityReceipt />
 
         <AccessibilityStatus
           artwork={artwork}
