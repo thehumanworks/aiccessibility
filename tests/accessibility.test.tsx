@@ -392,7 +392,7 @@ describe('Speaking style selector', () => {
 });
 
 describe('framed carousel', () => {
-  it('supports a horizontal touch swipe and direct progress-button navigation', () => {
+  it('supports a horizontal primary-button mouse drag', () => {
     render(<App />);
     const stage = artworkStage();
 
@@ -413,19 +413,30 @@ describe('framed carousel', () => {
     expect(
       screen.getByRole('heading', {
         level: 2,
-        name: 'The Boulevard Montmartre on a Winter Morning',
+        name: 'Young Woman with a Water Pitcher',
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: /02 \/ 06 · Young Woman with a Water Pitcher/,
+        current: true,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('supports a horizontal touch swipe and direct progress navigation', () => {
+    render(<App />);
+    const stage = artworkStage();
 
     fireEvent.pointerDown(stage, {
-      pointerId: 2,
+      pointerId: 1,
       pointerType: 'touch',
       isPrimary: true,
       clientX: 320,
       clientY: 200,
     });
     fireEvent.pointerUp(stage, {
-      pointerId: 2,
+      pointerId: 1,
       pointerType: 'touch',
       isPrimary: true,
       clientX: 80,

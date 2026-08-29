@@ -178,7 +178,7 @@
 
 @layer base {
   html {
-    min-width: 20rem;
+    min-width: 0;
     width: 100%;
     height: 100%;
     overflow: hidden;
@@ -190,7 +190,7 @@
   }
 
   body {
-    min-width: 20rem;
+    min-width: 0;
     width: 100%;
     height: 100%;
     margin: 0;
@@ -226,6 +226,7 @@
   .gallery {
     position: relative;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(0, 1fr) auto;
     width: 100%;
     height: 100vh;
@@ -383,6 +384,7 @@
     position: relative;
     container-type: size;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr) auto auto;
     justify-items: center;
     /* The art slot absorbs aspect-ratio differences. The label, progress,
@@ -421,7 +423,8 @@
 
   .artwork-figure {
     display: grid;
-    grid-template-rows: minmax(0, 1fr) var(--caption-reserve);
+    grid-template-rows:
+      minmax(0, 1fr) minmax(var(--caption-reserve), max-content);
     justify-items: center;
     gap: clamp(0.7rem, 1.8vh, 1.6rem);
     height: 100%;
@@ -1161,6 +1164,12 @@
 
     .artwork-label {
       padding-inline: 0.75rem;
+    }
+
+    .style-select[data-variant="label"] .style-select-track {
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 100%;
     }
 
     .style-select-option {

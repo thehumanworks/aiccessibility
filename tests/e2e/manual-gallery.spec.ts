@@ -38,6 +38,64 @@ async function swipeArtwork(page: Page, direction: 'next' | 'previous') {
   });
 }
 
+async function dragArtworkWithMouse(
+  page: Page,
+  direction: 'next' | 'previous',
+) {
+  const stage = page.locator('#artwork-stage');
+  const box = await stage.boundingBox();
+  if (!box) {
+    throw new Error('The artwork stage is not visible.');
+  }
+
+  const startX =
+    direction === 'next' ? box.x + box.width * 0.78 : box.x + box.width * 0.22;
+  const endX =
+    direction === 'next' ? box.x + box.width * 0.22 : box.x + box.width * 0.78;
+  const y = box.y + box.height * 0.5;
+
+  await page.mouse.move(startX, y);
+  await page.mouse.down();
+  await page.mouse.move(endX, y, { steps: 8 });
+  await page.mouse.up();
+}
+
+test('desktop mouse drags move the carousel in both directions', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/');
+
+  await dragArtworkWithMouse(page, 'next');
+  await expect(
+    page.getByRole('heading', {
+      level: 2,
+      name: 'Young Woman with a Water Pitcher',
+    }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\?artwork=vermeer-woman-with-water-pitcher$/);
+  await expect(page.getByRole('status')).toContainText('Artwork 2 of 6');
+  await expect(page.locator('.carousel-progress-bar').nth(1)).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+  await expect(page.locator('.stage-carousel > .artwork-figure')).toHaveCount(1);
+
+  await dragArtworkWithMouse(page, 'previous');
+  await expect(
+    page.getByRole('heading', {
+      level: 2,
+      name: 'The Boulevard Montmartre on a Winter Morning',
+    }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\?artwork=pissarro-boulevard-montmartre$/);
+  await expect(page.getByRole('status')).toContainText('Artwork 1 of 6');
+  await expect(page.locator('.carousel-progress-bar').first()).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+});
+
 test('mobile swipes walk all six works and share browser history state', async ({
   page,
 }) => {
@@ -438,6 +496,85 @@ test('narrow, zoomed, and reduced-motion visitors keep the whole experience', as
   ).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
+});
+
+test('the complete artwork label remains visible below 320 CSS pixels', async ({
+  page,
+}) => {
+  const viewport = { width: 280, height: 667 };
+  await page.setViewportSize(viewport);
+  await page.goto('/?artwork=hokusai-great-wave');
+  await expect(
+    page.getByRole('heading', {
+      level: 2,
+      name: 'Under the Wave off Kanagawa (The Great Wave)',
+    }),
+  ).toBeVisible();
+
+  const geometry = await page.evaluate(() => {
+    const rect = (selector: string) => {
+      const bounds = document.querySelector(selector)!.getBoundingClientRect();
+      return {
+        left: bounds.left,
+        right: bounds.right,
+        bottom: bounds.bottom,
+      };
+    };
+
+    return {
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      stage: rect('.stage-carousel'),
+      label: rect('.artwork-label'),
+      fineprint: rect('.artwork-fineprint'),
+    };
+  });
+
+  expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewportWidth);
+  expect(geometry.stage.left).toBeGreaterThanOrEqual(-1);
+  expect(geometry.stage.right).toBeLessThanOrEqual(viewport.width + 1);
+  expect(geometry.label.left).toBeGreaterThanOrEqual(0);
+  expect(geometry.label.right).toBeLessThanOrEqual(viewport.width);
+  expect(geometry.fineprint.left).toBeGreaterThanOrEqual(0);
+  expect(geometry.fineprint.right).toBeLessThanOrEqual(viewport.width);
+  expect(geometry.label.bottom).toBeLessThanOrEqual(geometry.stage.bottom);
+});
+
+test('a localized largest-text label expands its carousel row', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 545, height: 844 });
+  await page.goto('/?artwork=hokusai-great-wave');
+
+  await page.getByRole('button', { name: 'Gallery settings' }).click();
+  const dialog = page.getByRole('dialog');
+  const preferences = dialog.locator('.preference-control select');
+  await preferences.nth(1).selectOption('extra-large');
+  await preferences.nth(4).selectOption('fr');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(
+    page.getByRole('heading', {
+      level: 2,
+      name: 'Sous la vague au large de Kanagawa (La Grande Vague)',
+    }),
+  ).toBeVisible();
+
+  const geometry = await page.evaluate(() => {
+    const bottom = (selector: string) =>
+      document.querySelector(selector)!.getBoundingClientRect().bottom;
+    const top = (selector: string) =>
+      document.querySelector(selector)!.getBoundingClientRect().top;
+
+    return {
+      stageBottom: bottom('.stage-carousel'),
+      labelBottom: bottom('.artwork-label'),
+      progressTop: top('.carousel-progress'),
+    };
+  });
+
+  expect(geometry.labelBottom).toBeLessThanOrEqual(geometry.stageBottom);
+  expect(geometry.labelBottom).toBeLessThan(geometry.progressTop);
 });
 
 test('a failed image keeps the record, the frame, and the accessible state', async ({

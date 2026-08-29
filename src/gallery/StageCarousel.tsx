@@ -153,7 +153,7 @@ export function StageCarousel({
     if (
       swipeLocked.current ||
       !event.isPrimary ||
-      (event.pointerType !== 'touch' && event.pointerType !== 'pen') ||
+      (event.pointerType === 'mouse' && event.button !== 0) ||
       target.closest(interactiveSelector)
     ) {
       return;
