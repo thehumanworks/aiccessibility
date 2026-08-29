@@ -169,7 +169,7 @@ describe('AIccessibility gallery shell', () => {
     expect(document.getElementById('artwork-stage')).not.toBeNull();
   });
 
-  it('starts with a clean canvas and no idle region overlay', () => {
+  it('starts clean while keeping authored details manually discoverable', () => {
     const { container } = render(<App />);
 
     expect(screen.queryByRole('button', { name: /^Focus region:/ })).toBeNull();
@@ -178,7 +178,34 @@ describe('AIccessibility gallery shell', () => {
       'data-focused-region',
       '',
     );
-    expect(container.querySelector('.region-explorer')).toBeNull();
+    expect(container.querySelector('.region-explorer')).not.toBeNull();
+    const explore = screen.getByRole('button', { name: 'Explore details' });
+    expect(explore).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByRole('button', { name: 'Show whole artwork' })).toBeNull();
+
+    fireEvent.click(explore);
+    expect(explore).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      screen.getByRole('button', { name: 'The near winter tree' }),
+    ).toBeVisible();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'The near winter tree' }),
+    );
+    expect(container.querySelectorAll('.region-focus-marker')).toHaveLength(1);
+    expect(screen.getByText('Gallery-authored')).toBeVisible();
+    expect(
+      screen.getByRole('button', { name: 'Show whole artwork' }),
+    ).toBeVisible();
+  });
+
+  it('offers concise ChatGPT prompts without adding an embedded chatbot', () => {
+    const { container } = render(<App />);
+
+    const guide = screen.getByText('Ask ChatGPT');
+    expect(guide.closest('summary')).not.toBeNull();
+    expect(screen.getByText('“Describe this spatially.”')).toBeInTheDocument();
+    expect(container.querySelector('textarea')).toBeNull();
+    expect(container.querySelector('form')).toBeNull();
   });
 });

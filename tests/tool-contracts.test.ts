@@ -50,6 +50,25 @@ interface SuccessResult {
     mode: string;
     segments: Array<{ provenance: string; text: string }>;
   };
+  context?: {
+    artwork: { id: string; title: string };
+    observed: Array<{ id: string; text: string }>;
+    known: Array<{ id: string; text: string; sourceIds: string[] }>;
+    interpreted: Array<{ id: string; text: string; sourceIds: string[] }>;
+    sources: Array<{ id: string; label: string; url: string }>;
+    rights: { status: string; objectPageUrl: string };
+    regions: Array<{ id: string; label: string; verification: string }>;
+  };
+  activity?: Array<{
+    origin: string;
+    action: string;
+    summary: string;
+    fromRevision: number;
+    toRevision: number;
+  }>;
+  before?: Record<string, string>;
+  after?: Record<string, string>;
+  changes?: Array<{ setting: string; from: string; to: string }>;
 }
 
 interface ErrorResult {
@@ -204,13 +223,14 @@ describe('WebMCP probe contracts', () => {
     expect(modelContext.tools.map(({ name }) => name)).toEqual([
       'get_gallery_state',
       'list_artworks',
+      'get_artwork_context',
       'navigate_to_artwork',
       'set_experience_mode',
-      'set_font_family',
-      'set_font_size',
-      'set_contrast',
-      'set_color_theme',
-      'set_content_language',
+      'configure_presentation',
+      'publish_gallery_response',
+      'clear_gallery_response',
+      'get_session_activity',
+      'undo_last_change',
       'list_regions',
       'focus_artwork_area',
       'analyze_artwork_regions',
@@ -245,15 +265,14 @@ describe('WebMCP probe contracts', () => {
     expect(
       findTool(tools, 'set_experience_mode').annotations?.readOnlyHint,
     ).toBe(false);
+    expect(findTool(tools, 'get_artwork_context').annotations?.readOnlyHint).toBe(true);
+    expect(findTool(tools, 'get_session_activity').annotations?.readOnlyHint).toBe(true);
     for (const name of [
-      'set_font_family',
-      'set_font_size',
-      'set_contrast',
-      'set_color_theme',
-      'set_content_language',
-    ]) {
-      expect(findTool(tools, name).annotations?.readOnlyHint).toBe(false);
-    }
+      'configure_presentation',
+      'publish_gallery_response',
+      'clear_gallery_response',
+      'undo_last_change',
+    ]) expect(findTool(tools, name).annotations?.readOnlyHint).toBe(false);
     expect(findTool(tools, 'list_regions').annotations?.readOnlyHint).toBe(true);
     expect(
       findTool(tools, 'focus_artwork_area').annotations?.readOnlyHint,
@@ -275,28 +294,26 @@ describe('WebMCP probe contracts', () => {
     const stateDescription = findTool(tools, 'get_gallery_state').description;
     const regionDescription = findTool(tools, 'describe_region').description;
 
-    expect(stateDescription).toContain('tell me what you see');
-    expect(stateDescription).toContain(
-      'speakingStyle must govern the description’s interpretive tone and structure',
-    );
-    expect(stateDescription).toContain('does not replace your host persona');
-    expect(stateDescription).toContain('focusedRegion is not null');
-    expect(stateDescription).toContain('call describe_region with its id');
-    expect(stateDescription).toContain('otherwise explain the whole visible artwork');
+    expect(stateDescription).toContain('current-view request');
+    expect(stateDescription).toContain('speakingStyle governs gallery content');
+    expect(stateDescription).toContain('not your host persona');
+    expect(stateDescription).toContain('focusedRegion exists');
+    expect(stateDescription).toContain('call describe_region');
+    expect(stateDescription).toContain('otherwise call get_artwork_context');
     expect(findTool(tools, 'list_artworks').description).toContain(
       'follow with navigate_to_artwork',
     );
     expect(findTool(tools, 'navigate_to_artwork').description).toContain(
-      'call list_artworks first',
+      'Call list_artworks first',
     );
     expect(findTool(tools, 'set_experience_mode').description).toContain(
-      'continue with get_gallery_state',
+      'follow the current-view branch through get_gallery_state',
     );
     expect(findTool(tools, 'list_regions').description).toContain(
       'focus_region or describe_region',
     );
     expect(findTool(tools, 'analyze_artwork_regions').description).toContain(
-      'not for one specific detail; use zoom_to_artwork_detail',
+      'use zoom_to_artwork_detail for one target',
     );
     expect(findTool(tools, 'zoom_to_artwork_detail').description).toContain(
       'follow with describe_region',
@@ -304,7 +321,7 @@ describe('WebMCP probe contracts', () => {
     expect(findTool(tools, 'focus_region').description).toContain(
       'natural-language target without an id',
     );
-    expect(regionDescription).toContain('visitor asks what they see');
+    expect(regionDescription).toContain('asks what they see');
     expect(regionDescription).toContain('currently selected speaking style');
     expect(regionDescription).toContain('mode-specific segments');
     expect(regionDescription).toContain('host persona');
@@ -345,28 +362,219 @@ describe('WebMCP probe contracts', () => {
     expect(controller.getState()).toBe(before);
   });
 
-  it('applies all five personalization tools through one live state', async () => {
+  it('returns bounded source-owned context without fabricating translations', async () => {
+    const controller = createTestController();
+    controller.setLanguage('fr');
+    const before = controller.getState();
+    const result = (await findTool(
+      createGalleryTools(controller),
+      'get_artwork_context',
+    ).execute(
+      { artworkId: 'hokusai-great-wave' },
+      executionOptions(),
+    )) as SuccessResult;
+
+    expect(result.context).toMatchObject({
+      artwork: {
+        id: 'hokusai-great-wave',
+        title: 'Sous la vague au large de Kanagawa (La Grande Vague)',
+      },
+      rights: { status: 'Public Domain' },
+    });
+    expect(result.context?.observed[0]).toMatchObject({
+      id: 'hokusai-observed-1',
+      text: expect.stringContaining('wave'),
+    });
+    expect(result.context?.known[0]?.sourceIds).toContain('met-object-45434');
+    expect(result.context?.sources.map(({ id }) => id)).toEqual(
+      expect.arrayContaining(['met-object-45434', 'met-open-access-policy']),
+    );
+    expect(result.context?.regions.every(({ verification }) => verification === 'authored')).toBe(true);
+    expect(controller.getState()).toBe(before);
+  });
+
+  it('publishes source-bound plain text, clears it, and records a redacted receipt', async () => {
     const controller = createTestController();
     const tools = createGalleryTools(controller);
+    const published = (await findTool(tools, 'publish_gallery_response').execute(
+      {
+        mode: 'curatorial',
+        title: 'What the record supports',
+        expectedRevision: 0,
+        segments: [
+          { provenance: 'observed', statementId: 'pissarro-observed-1' },
+          { provenance: 'known', statementId: 'pissarro-known-1' },
+          { provenance: 'interpreted', text: '<em>This stays literal text.</em>' },
+          { provenance: 'imagined', text: 'A private generated phrase.' },
+        ],
+      },
+      executionOptions(),
+    )) as SuccessResult;
 
-    await findTool(tools, 'set_font_family').execute(
-      { fontFamily: 'mono' },
+    expect(published.state.revision).toBe(1);
+    expect(controller.getState().interpretation).toMatchObject({
+      mode: 'curatorial',
+      segments: [
+        {
+          provenance: 'observed',
+          statementId: 'pissarro-observed-1',
+          text: expect.stringContaining('viewpoint is elevated'),
+        },
+        {
+          provenance: 'known',
+          statementId: 'pissarro-known-1',
+          sourceIds: ['met-object-437310'],
+        },
+        { provenance: 'interpreted', text: '<em>This stays literal text.</em>' },
+        { provenance: 'imagined', text: 'A private generated phrase.' },
+      ],
+    });
+
+    const receipt = (await findTool(tools, 'get_session_activity').execute(
+      {},
+      executionOptions(),
+    )) as SuccessResult;
+    expect(receipt.activity).toMatchObject([
+      {
+        origin: 'agent',
+        action: 'publish-gallery-response',
+        fromRevision: 0,
+        toRevision: 1,
+      },
+    ]);
+    expect(JSON.stringify(receipt.activity)).not.toContain('private generated');
+    expect(JSON.stringify(receipt.activity)).not.toContain('<em>');
+    expect(controller.getState().revision).toBe(1);
+
+    await findTool(tools, 'clear_gallery_response').execute(
+      { expectedRevision: 1 },
       executionOptions(),
     );
-    await findTool(tools, 'set_font_size').execute(
-      { fontSize: 'extra-large' },
+    expect(controller.getState()).toMatchObject({ interpretation: null, revision: 2 });
+
+    await findTool(tools, 'undo_last_change').execute(
+      { expectedRevision: 2 },
       executionOptions(),
     );
-    await findTool(tools, 'set_contrast').execute(
-      { contrast: 'high' },
-      executionOptions(),
-    );
-    await findTool(tools, 'set_color_theme').execute(
+    expect(controller.getState()).toMatchObject({
+      revision: 3,
+      interpretation: { title: 'What the record supports' },
+      undoSnapshot: null,
+    });
+  });
+
+  it('rejects stale, mislabelled, unknown, and oversized response payloads without mutation', async () => {
+    const controller = createTestController();
+    const tools = createGalleryTools(controller);
+    await findTool(tools, 'configure_presentation').execute(
       { theme: 'light' },
       executionOptions(),
     );
-    const result = (await findTool(tools, 'set_content_language').execute(
-      { language: 'es' },
+    const before = controller.getState();
+    const publish = findTool(tools, 'publish_gallery_response');
+    const stale = (await publish.execute(
+      {
+        mode: 'literal',
+        expectedRevision: 0,
+        segments: [{ provenance: 'observed', statementId: 'pissarro-observed-1' }],
+      },
+      executionOptions(),
+    )) as ErrorResult;
+    const mislabelled = (await publish.execute(
+      {
+        mode: 'literal',
+        segments: [{ provenance: 'observed', statementId: 'pissarro-known-1' }],
+      },
+      executionOptions(),
+    )) as ErrorResult;
+    const invalidMode = (await publish.execute(
+      {
+        mode: 'oracle',
+        segments: [{ provenance: 'imagined', text: 'Bounded.' }],
+      },
+      executionOptions(),
+    )) as ErrorResult;
+    const oversized = (await publish.execute(
+      {
+        mode: 'story',
+        segments: [{ provenance: 'imagined', text: 'x'.repeat(601) }],
+      },
+      executionOptions(),
+    )) as ErrorResult;
+
+    expect(stale.error.code).toBe('STALE_GALLERY_STATE');
+    expect(mislabelled.error.code).toBe('UNKNOWN_OR_MISLABELLED_STATEMENT');
+    expect(invalidMode.error.code).toBe('UNKNOWN_MODE');
+    expect(oversized.error.code).toBe('INVALID_INPUT');
+    expect(controller.getState()).toBe(before);
+  });
+
+  it('applies revision guards consistently to existing mutation tools', async () => {
+    const controller = createTestController();
+    const tools = createGalleryTools(controller);
+    controller.setTheme('light');
+    const before = controller.getState();
+    const staleCases = [
+      ['navigate_to_artwork', { artworkId: 'vermeer-woman-with-water-pitcher' }],
+      ['set_experience_mode', { mode: 'story' }],
+      [
+        'focus_artwork_area',
+        {
+          label: 'A detail',
+          bounds: { x: 0.1, y: 0.1, width: 0.2, height: 0.2 },
+        },
+      ],
+      ['analyze_artwork_regions', { labels: ['tree'] }],
+      ['zoom_to_artwork_detail', { query: 'the near tree' }],
+      ['focus_region', { regionId: 'pissarro-left-tree' }],
+      ['clear_region_focus', {}],
+    ] as const;
+
+    for (const [toolName, input] of staleCases) {
+      const result = (await findTool(tools, toolName).execute(
+        { ...input, expectedRevision: 0 },
+        executionOptions(),
+      )) as ErrorResult;
+      expect(result.error.code).toBe('STALE_GALLERY_STATE');
+      expect(controller.getState()).toBe(before);
+    }
+  });
+
+  it('keeps tool and parameter descriptions within agent-selection budgets', () => {
+    const tools = createGalleryTools(createTestController());
+    const collectDescriptions = (value: unknown): string[] => {
+      if (!value || typeof value !== 'object') return [];
+      if (Array.isArray(value)) return value.flatMap(collectDescriptions);
+      return Object.entries(value as Record<string, unknown>).flatMap(
+        ([key, item]) => [
+          ...(key === 'description' && typeof item === 'string' ? [item] : []),
+          ...collectDescriptions(item),
+        ],
+      );
+    };
+    for (const tool of tools) {
+      expect(tool.description.length).toBeLessThanOrEqual(500);
+      for (const description of collectDescriptions(tool.inputSchema)) {
+        expect(description.length).toBeLessThanOrEqual(150);
+      }
+    }
+  });
+
+  it('atomically applies presentation settings through one registered tool', async () => {
+    const controller = createTestController();
+    const tools = createGalleryTools(controller);
+
+    expect(tools.some(({ name }) => name === 'set_font_family')).toBe(false);
+    const result = (await findTool(tools, 'configure_presentation').execute(
+      {
+        mode: 'spatial',
+        fontFamily: 'mono',
+        fontSize: 'extra-large',
+        contrast: 'high',
+        theme: 'light',
+        language: 'es',
+        expectedRevision: 0,
+      },
       executionOptions(),
     )) as SuccessResult;
 
@@ -381,32 +589,47 @@ describe('WebMCP probe contracts', () => {
         theme: 'light',
         language: 'es',
       },
-      revision: 5,
+      mode: 'spatial',
+      revision: 1,
     });
 
-    const repeated = (await findTool(tools, 'set_content_language').execute(
+    expect(result).toMatchObject({
+      before: expect.any(Object),
+      after: expect.any(Object),
+      changes: expect.arrayContaining([
+        { setting: 'mode', from: 'literal', to: 'spatial' },
+        { setting: 'language', from: 'en', to: 'es' },
+      ]),
+    });
+
+    const repeated = (await findTool(tools, 'configure_presentation').execute(
       { language: 'es' },
       executionOptions(),
     )) as SuccessResult;
-    expect(repeated.state.revision).toBe(5);
+    expect(repeated.state.revision).toBe(1);
   });
 
-  it('rejects unknown personalization values without changing state', async () => {
+  it('rejects invalid or empty atomic presentation requests without changing state', async () => {
     const controller = createTestController();
     const tools = createGalleryTools(controller);
     const before = controller.getState();
 
-    const result = (await findTool(tools, 'set_font_family').execute(
+    const result = (await findTool(tools, 'configure_presentation').execute(
       { fontFamily: 'papyrus' },
       executionOptions(),
     )) as ErrorResult;
-    const extra = (await findTool(tools, 'set_color_theme').execute(
+    const extra = (await findTool(tools, 'configure_presentation').execute(
       { theme: 'light', surprise: true },
       executionOptions(),
     )) as ErrorResult;
+    const empty = (await findTool(tools, 'configure_presentation').execute(
+      {},
+      executionOptions(),
+    )) as ErrorResult;
 
-    expect(result.error.code).toBe('UNKNOWN_FONT_FAMILY');
+    expect(result.error.code).toBe('INVALID_INPUT');
     expect(extra.error.code).toBe('INVALID_INPUT');
+    expect(empty.error.code).toBe('INVALID_INPUT');
     expect(controller.getState()).toBe(before);
   });
 
@@ -821,7 +1044,7 @@ describe('WebMCP probe contracts', () => {
     });
 
     const { unmount } = render(createElement(App));
-    await waitFor(() => expect(modelContext.tools).toHaveLength(16));
+    await waitFor(() => expect(modelContext.tools).toHaveLength(17));
 
     await act(async () => {
       await findTool(modelContext.tools, 'set_experience_mode').execute(
@@ -846,7 +1069,7 @@ describe('WebMCP probe contracts', () => {
       'story',
     );
     expect(window.location.search).toBe('?artwork=hokusai-great-wave');
-    expect(modelContext.tools).toHaveLength(16);
+    expect(modelContext.tools).toHaveLength(17);
 
     // The tool-set mode is the chosen option of the wall-label control.
     const checkedStyle = (group: HTMLElement) =>
@@ -887,7 +1110,7 @@ describe('WebMCP probe contracts', () => {
     const { unmount } = render(
       createElement(StrictMode, null, createElement(App)),
     );
-    await waitFor(() => expect(modelContext.tools).toHaveLength(16));
+    await waitFor(() => expect(modelContext.tools).toHaveLength(17));
 
     let result: SuccessResult | undefined;
     await act(async () => {

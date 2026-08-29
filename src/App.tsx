@@ -3,6 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getArtwork, listArtworks } from './collection/repository';
 import { AccessibilityStatus } from './gallery/AccessibilityStatus';
+import {
+  ActivityReceipt,
+  CompanionPanel,
+} from './gallery/CompanionPanel';
+import { ExperienceGuide } from './gallery/ExperienceGuide';
 import { GalleryProvider, useGallery } from './gallery/GalleryProvider';
 import { getUiCopy, localizeArtwork, localizeRegion } from './gallery/i18n';
 import {
@@ -99,12 +104,24 @@ function GalleryExperience() {
         <a className="skip-link" href="#artwork-stage">
           {copy.skipToArtwork}
         </a>
+        {state.interpretation ? (
+          <a
+            className="skip-link skip-link-companion"
+            href="#companion-title"
+          >
+            {copy.skipToCompanion}
+          </a>
+        ) : null}
 
         <header className="masthead">
           <h1 className="wordmark">
             <span className="wordmark-lead">AI</span>ccessibility
           </h1>
           <p className="tagline">{copy.tagline}</p>
+          <ExperienceGuide
+            language={language}
+            siteToolsSupported={siteToolsSupported}
+          />
           <button
             type="button"
             className="settings-cog"
@@ -132,7 +149,10 @@ function GalleryExperience() {
           </button>
         </header>
 
-        <main className="hall">
+        <main
+          className="hall"
+          data-companion={state.interpretation !== null}
+        >
           <StageCarousel
             artworks={artworks}
             currentIndex={currentIndex}
@@ -149,7 +169,10 @@ function GalleryExperience() {
             controller={controller}
             variant="label"
           />
+          <CompanionPanel suspended={settingsOpen} />
         </main>
+
+        <ActivityReceipt />
 
         <AccessibilityStatus
           artwork={artwork}

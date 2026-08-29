@@ -1,8 +1,16 @@
-import type { Artwork, ArtworkRegion, ExperienceMode, GalleryLanguage, ProvenanceKind } from './types';
+import type {
+  Artwork,
+  ArtworkRegion,
+  ExperienceMode,
+  GalleryActivityAction,
+  GalleryLanguage,
+  ProvenanceKind,
+} from './types';
 
 export interface UiCopy {
   tagline: string;
   skipToArtwork: string;
+  skipToCompanion: string;
   gallerySettings: string;
   artworkNavigation: string;
   previousArtwork: string;
@@ -11,6 +19,31 @@ export interface UiCopy {
   speakingHint: string;
   showWholeArtwork: string;
   artworkRegions: string;
+  exploreDetails: string;
+  hideDetails: string;
+  authoredRegion: string;
+  agentRegion: string;
+  modelRegion: string;
+  confirmedRegion: string;
+  confirmRegion: string;
+  dismissRegion: string;
+  sharedCompanion: string;
+  clearCompanion: string;
+  companionFootnote: string;
+  canonicalEnglish: string;
+  sources: string;
+  agentChanged: string;
+  youChanged: string;
+  revisionLabel: string;
+  undoLastChange: string;
+  dismissActivity: string;
+  activityActions: Record<GalleryActivityAction, string>;
+  askChatGpt: string;
+  toolsReadyShort: string;
+  manualReadyShort: string;
+  guideReady: string;
+  guideManual: string;
+  promptSuggestions: readonly string[];
   imageUnavailable: string;
   imageCouldNotDisplay: string;
   artworkRecordAvailable: string;
@@ -45,6 +78,7 @@ const copy: Record<GalleryLanguage, UiCopy> = {
   en: {
     tagline: 'One gallery · many ways of seeing',
     skipToArtwork: 'Skip to the artwork',
+    skipToCompanion: 'Skip to the shared companion',
     gallerySettings: 'Gallery settings',
     artworkNavigation: 'Artwork navigation',
     previousArtwork: 'Previous artwork',
@@ -53,6 +87,56 @@ const copy: Record<GalleryLanguage, UiCopy> = {
     speakingHint: 'Arrow keys move through the five styles. Number keys 1 to 5 choose one directly.',
     showWholeArtwork: 'Show whole artwork',
     artworkRegions: 'Artwork regions',
+    exploreDetails: 'Explore details',
+    hideDetails: 'Hide details',
+    authoredRegion: 'Gallery-authored',
+    agentRegion: 'Agent-grounded suggestion',
+    modelRegion: 'Local-model suggestion',
+    confirmedRegion: 'Human-confirmed',
+    confirmRegion: 'Confirm this detail',
+    dismissRegion: 'Not this',
+    sharedCompanion: 'Shared companion',
+    clearCompanion: 'Clear the shared response',
+    companionFootnote:
+      'Published into this page for everyone using it. Conversation remains with ChatGPT.',
+    canonicalEnglish: 'Canonical English record',
+    sources: 'Sources',
+    agentChanged: 'ChatGPT changed the gallery:',
+    youChanged: 'You changed the gallery:',
+    revisionLabel: 'Shared state',
+    undoLastChange: 'Undo last change',
+    dismissActivity: 'Dismiss activity receipt',
+    activityActions: {
+      navigate: 'Changed the current artwork.',
+      'set-mode': 'Changed the speaking style.',
+      'configure-presentation': 'Adapted the presentation.',
+      'set-font-family': 'Changed the typeface.',
+      'set-font-size': 'Changed the text size.',
+      'set-contrast': 'Changed the contrast.',
+      'set-theme': 'Changed the colour theme.',
+      'set-language': 'Changed the language.',
+      'focus-region': 'Focused an artwork detail.',
+      'focus-agent-region': 'Proposed a grounded detail.',
+      'confirm-region': 'Confirmed a proposed detail.',
+      'dismiss-region': 'Dismissed a proposed detail.',
+      'clear-focus': 'Returned to the whole artwork.',
+      'analyze-regions': 'Completed local detail analysis.',
+      'publish-gallery-response': 'Published a shared response.',
+      'clear-gallery-response': 'Cleared the shared response.',
+      undo: 'Undid the previous change.',
+    },
+    askChatGpt: 'Ask ChatGPT',
+    toolsReadyShort: 'Site Tools ready.',
+    manualReadyShort: 'Manual gallery mode.',
+    guideReady: 'Site Tools are ready. Try a natural request:',
+    guideManual:
+      'The gallery remains fully usable here. In a WebMCP-enabled browser, ChatGPT can share these controls.',
+    promptSuggestions: [
+      'Describe this spatially.',
+      'What is known, and what are you imagining?',
+      'Show me details I can explore.',
+      'Take me somewhere calmer.',
+    ],
     imageUnavailable: 'Image unavailable',
     imageCouldNotDisplay: 'The image could not be displayed.',
     artworkRecordAvailable: 'The artwork record is still available.',
@@ -85,6 +169,7 @@ const copy: Record<GalleryLanguage, UiCopy> = {
   es: {
     tagline: 'Una galería · muchas formas de mirar',
     skipToArtwork: 'Ir a la obra',
+    skipToCompanion: 'Ir al compañero compartido',
     gallerySettings: 'Ajustes de la galería',
     artworkNavigation: 'Navegación de obras',
     previousArtwork: 'Obra anterior',
@@ -93,6 +178,56 @@ const copy: Record<GalleryLanguage, UiCopy> = {
     speakingHint: 'Usa las flechas para recorrer los cinco estilos. Las teclas 1 a 5 eligen uno directamente.',
     showWholeArtwork: 'Mostrar la obra completa',
     artworkRegions: 'Regiones de la obra',
+    exploreDetails: 'Explorar detalles',
+    hideDetails: 'Ocultar detalles',
+    authoredRegion: 'Creado por la galería',
+    agentRegion: 'Sugerencia situada por el agente',
+    modelRegion: 'Sugerencia del modelo local',
+    confirmedRegion: 'Confirmado por una persona',
+    confirmRegion: 'Confirmar este detalle',
+    dismissRegion: 'No es esto',
+    sharedCompanion: 'Compañero compartido',
+    clearCompanion: 'Borrar la respuesta compartida',
+    companionFootnote:
+      'Publicado en esta página para todas las personas que la usan. La conversación permanece en ChatGPT.',
+    canonicalEnglish: 'Registro canónico en inglés',
+    sources: 'Fuentes',
+    agentChanged: 'ChatGPT cambió la galería:',
+    youChanged: 'Cambiaste la galería:',
+    revisionLabel: 'Estado compartido',
+    undoLastChange: 'Deshacer el último cambio',
+    dismissActivity: 'Ocultar el recibo de actividad',
+    activityActions: {
+      navigate: 'Cambió la obra actual.',
+      'set-mode': 'Cambió el estilo de narración.',
+      'configure-presentation': 'Adaptó la presentación.',
+      'set-font-family': 'Cambió la tipografía.',
+      'set-font-size': 'Cambió el tamaño del texto.',
+      'set-contrast': 'Cambió el contraste.',
+      'set-theme': 'Cambió el tema de color.',
+      'set-language': 'Cambió el idioma.',
+      'focus-region': 'Enfocó un detalle de la obra.',
+      'focus-agent-region': 'Propuso un detalle situado.',
+      'confirm-region': 'Confirmó un detalle propuesto.',
+      'dismiss-region': 'Descartó un detalle propuesto.',
+      'clear-focus': 'Volvió a la obra completa.',
+      'analyze-regions': 'Completó el análisis local de detalles.',
+      'publish-gallery-response': 'Publicó una respuesta compartida.',
+      'clear-gallery-response': 'Borró la respuesta compartida.',
+      undo: 'Deshizo el cambio anterior.',
+    },
+    askChatGpt: 'Pregunta a ChatGPT',
+    toolsReadyShort: 'Site Tools listas.',
+    manualReadyShort: 'Modo de galería manual.',
+    guideReady: 'Las Site Tools están listas. Prueba una petición natural:',
+    guideManual:
+      'La galería sigue siendo plenamente utilizable. En un navegador con WebMCP, ChatGPT puede compartir estos controles.',
+    promptSuggestions: [
+      'Describe esto espacialmente.',
+      '¿Qué se sabe y qué estás imaginando?',
+      'Muéstrame detalles que pueda explorar.',
+      'Llévame a un lugar más tranquilo.',
+    ],
     imageUnavailable: 'Imagen no disponible',
     imageCouldNotDisplay: 'No se pudo mostrar la imagen.',
     artworkRecordAvailable: 'La ficha de la obra sigue disponible.',
@@ -125,6 +260,7 @@ const copy: Record<GalleryLanguage, UiCopy> = {
   fr: {
     tagline: 'Une galerie · plusieurs façons de voir',
     skipToArtwork: 'Aller à l’œuvre',
+    skipToCompanion: 'Aller au compagnon partagé',
     gallerySettings: 'Réglages de la galerie',
     artworkNavigation: 'Navigation des œuvres',
     previousArtwork: 'Œuvre précédente',
@@ -133,6 +269,56 @@ const copy: Record<GalleryLanguage, UiCopy> = {
     speakingHint: 'Les flèches parcourent les cinq styles. Les touches 1 à 5 en choisissent un directement.',
     showWholeArtwork: 'Afficher l’œuvre entière',
     artworkRegions: 'Régions de l’œuvre',
+    exploreDetails: 'Explorer les détails',
+    hideDetails: 'Masquer les détails',
+    authoredRegion: 'Créé par la galerie',
+    agentRegion: 'Suggestion localisée par l’agent',
+    modelRegion: 'Suggestion du modèle local',
+    confirmedRegion: 'Confirmé par une personne',
+    confirmRegion: 'Confirmer ce détail',
+    dismissRegion: 'Ce n’est pas cela',
+    sharedCompanion: 'Compagnon partagé',
+    clearCompanion: 'Effacer la réponse partagée',
+    companionFootnote:
+      'Publié sur cette page pour toutes les personnes qui l’utilisent. La conversation reste dans ChatGPT.',
+    canonicalEnglish: 'Notice canonique en anglais',
+    sources: 'Sources',
+    agentChanged: 'ChatGPT a modifié la galerie :',
+    youChanged: 'Vous avez modifié la galerie :',
+    revisionLabel: 'État partagé',
+    undoLastChange: 'Annuler la dernière modification',
+    dismissActivity: 'Masquer le reçu d’activité',
+    activityActions: {
+      navigate: 'A changé l’œuvre actuelle.',
+      'set-mode': 'A changé le style de narration.',
+      'configure-presentation': 'A adapté la présentation.',
+      'set-font-family': 'A changé la police.',
+      'set-font-size': 'A changé la taille du texte.',
+      'set-contrast': 'A changé le contraste.',
+      'set-theme': 'A changé le thème de couleur.',
+      'set-language': 'A changé la langue.',
+      'focus-region': 'A ciblé un détail de l’œuvre.',
+      'focus-agent-region': 'A proposé un détail localisé.',
+      'confirm-region': 'A confirmé un détail proposé.',
+      'dismiss-region': 'A écarté un détail proposé.',
+      'clear-focus': 'Est revenu à l’œuvre entière.',
+      'analyze-regions': 'A terminé l’analyse locale des détails.',
+      'publish-gallery-response': 'A publié une réponse partagée.',
+      'clear-gallery-response': 'A effacé la réponse partagée.',
+      undo: 'A annulé la modification précédente.',
+    },
+    askChatGpt: 'Demandez à ChatGPT',
+    toolsReadyShort: 'Site Tools prêtes.',
+    manualReadyShort: 'Mode galerie manuel.',
+    guideReady: 'Les Site Tools sont prêtes. Essayez une demande naturelle :',
+    guideManual:
+      'La galerie reste entièrement utilisable. Dans un navigateur WebMCP, ChatGPT peut partager ces commandes.',
+    promptSuggestions: [
+      'Décris ceci spatialement.',
+      'Qu’est-ce qui est connu et qu’imagines-tu ?',
+      'Montre-moi des détails à explorer.',
+      'Emmène-moi vers quelque chose de plus calme.',
+    ],
     imageUnavailable: 'Image indisponible',
     imageCouldNotDisplay: 'L’image n’a pas pu être affichée.',
     artworkRecordAvailable: 'La fiche de l’œuvre reste disponible.',

@@ -89,6 +89,8 @@ interface GalleryState {
   mode: ExperienceMode;
   focusedRegionId: RegionId | null;
   interpretation: RenderedInterpretation | null;
+  activity: SessionActivityEntry[];
+  undoSnapshot: GallerySnapshot | null;
   revision: number;
 }
 ```
@@ -265,35 +267,54 @@ Mutation. Restores the whole artwork without changing mode or interpretation.
 
 Input: empty closed object.
 
-### `render_interpretation`
+### `configure_presentation`
 
-Mutation. Stores and displays agent-generated plain-text segments with explicit provenance. It does not generate content or speak.
+Mutation. Applies any non-empty subset of speaking style, font family, text
+size, contrast, theme, and language atomically in one revision. Returns a
+before/after diff and supports an `expectedRevision` precondition.
+
+### `publish_gallery_response`
+
+Mutation. Stores and displays a bounded, context-bound response with explicit
+provenance. Observed and Known segments reference statement IDs from
+`get_artwork_context`; only Interpreted and Imagined segments accept agent text.
+It does not generate content or speak.
 
 Input:
 
 ```ts
 {
-  mode: ExperienceMode;
+  mode?: ExperienceMode;
   title?: string;
   segments: Array<{
-    provenance: ProvenanceKind;
+    provenance: 'observed' | 'known';
+    statementId: string;
+  } | {
+    provenance: 'interpreted' | 'imagined';
     text: string;
   }>;
+  expectedRevision?: number;
 }
 ```
 
 Constraints:
 
 - Maximum 8 segments.
-- Maximum 800 characters per segment.
+- Maximum 600 characters per agent-authored segment.
 - Plain text; angle brackets rendered literally.
 - `known` segments require at least one source id already present in the current artwork record, or the executor rejects them. If this is too difficult for the first probe, restrict rendered segments to `observed`, `interpreted`, and `imagined` until source binding is complete.
 
-### `clear_interpretation`
+### `clear_gallery_response`
 
 Mutation. Clears rendered text while preserving artwork, mode, and focus.
 
 Input: empty closed object.
+
+### `get_session_activity` and `undo_last_change`
+
+The read tool returns at most twenty controlled activity entries containing
+origin, action, and revision transition—never prompts or response text. Undo
+restores one reversible snapshot, records the recovery, and cannot recurse.
 
 ## File Structure
 
@@ -318,8 +339,9 @@ Input: empty closed object.
 │   │   ├── controller.ts              # Stable read/action surface for UI and tools
 │   │   ├── GalleryProvider.tsx        # React context and controller lifecycle
 │   │   ├── ArtworkStage.tsx           # Image presentation, loading/error, region focus
-│   │   ├── InterpretationLayer.tsx    # Provenance-tagged plain-text presentation
-│   │   ├── GalleryChrome.tsx          # Manual navigation, mode, metadata, legend
+│   │   ├── CompanionPanel.tsx         # Provenance canvas, sources, receipt, Undo
+│   │   ├── ExperienceGuide.tsx        # Honest first-run ChatGPT guidance
+│   │   ├── RegionExplorer.tsx         # Manual details and human ratification
 │   │   ├── AccessibilityStatus.tsx    # Concise aria-live announcements
 │   │   └── history.ts                 # Query-param state and popstate synchronization
 │   ├── collection/
@@ -371,7 +393,8 @@ Input: empty closed object.
 2. The repository validates ids and returns immutable records.
 3. `get_artwork_context` serializes only bounded context and source records.
 4. ChatGPT combines visible image inspection, returned context, and conversation intent.
-5. ChatGPT may call `render_interpretation` to publish a provenance-tagged transcript to the page while speaking.
+5. ChatGPT may call `publish_gallery_response` to publish a source-bound,
+   provenance-tagged transcript to the page while speaking.
 6. The site never persists this interpretation beyond the current page lifetime.
 
 ### Manual UI lifecycle
@@ -387,9 +410,9 @@ Input: empty closed object.
 | --- | --- |
 | Epic 1: Enter the gallery | `App`, `GalleryChrome`, support detection, default artwork |
 | Epic 2: Discover/navigate | `list_artworks`, `navigate_to_artwork`, repository, history |
-| Epic 3: Experience modes | reducer, `set_experience_mode`, CSS mode themes, `InterpretationLayer` |
+| Epic 3: Experience modes | reducer, `set_experience_mode`, CSS mode themes, `CompanionPanel` |
 | Epic 4: Explore details | curated regions, `ArtworkStage`, `focus_region`, `clear_region_focus` |
-| Epic 5: Provenance | artwork source model, `render_interpretation`, provenance legend |
+| Epic 5: Provenance | artwork source model, `publish_gallery_response`, companion canvas |
 | Epic 6: Shared live state | controller, reducer, tool result revisions, manual/tool unification |
 | Epic 7: Accessibility | semantic components, focus system, CSS, status announcer, axe tests |
 | Epic 8: Judge proof | tool registry, fake model context, DevTools/evals, live validation docs |
@@ -437,7 +460,7 @@ Codex coordinates planning, implementation, testing, and documentation. Cursor A
 
 ## Security And Privacy
 
-- No accounts, cookies, analytics, user data, voice recordings, or server persistence in the proof of concept.
+- No accounts, cookies, analytics, user data, voice recordings, or server persistence in the showcase product.
 - All tool mutations are bounded to local UI state.
 - No arbitrary URLs, selectors, HTML, JavaScript, file paths, or network destinations are accepted from tool inputs.
 - Agent-rendered text is inserted as text nodes only.
@@ -445,10 +468,13 @@ Codex coordinates planning, implementation, testing, and documentation. Cursor A
 - Tool errors do not expose stack traces or internal paths.
 - Rights/source URLs are fixed data, not user input.
 - Content Security Policy should allow only self-hosted application assets where practical; avoid third-party font/runtime dependencies.
+- Production headers enforce a bounded CSP compatible with bundled WASM/workers
+  and revision-pinned Hugging Face model downloads, deny page-level camera,
+  microphone, and geolocation, and prevent MIME sniffing.
 
 ## Accessibility Implementation
 
-- Target WCAG 2.2 AA for the proof-of-concept interface; document that this is a target, not certification.
+- Target WCAG 2.2 AA for the showcase interface; document that this is a target, not certification.
 - Use native buttons/links and semantic landmarks/headings.
 - Maintain a visible “skip to artwork / skip to interpretation” path.
 - Use `aria-current`, accessible artwork figure/caption structure, and a concise polite status region.
@@ -473,6 +499,15 @@ Codex coordinates planning, implementation, testing, and documentation. Cursor A
 - Invoke every executor with valid and invalid inputs.
 - Prove read-only tools do not mutate revision.
 - Prove canceled actions do not apply late.
+- Enforce tool/parameter description budgets and stale revision behavior across
+  every mutation.
+
+### Intent and journey evals
+
+- Validate a machine-readable 49-case English/Spanish/French corpus covering
+  direct, ambiguous, multi-step, abstention, stale-state, and provenance paths.
+- Review routing independently with multiple models before calling the corpus
+  ready for a hosted probabilistic runner.
 
 ### Component/accessibility tests
 
@@ -589,8 +624,14 @@ No production environment variables are expected.
 
 ## Architecture Self-Review
 
-1. **Nine tools may be too many for reliable selection.** Start the probe with four: `get_gallery_state`, `list_artworks`, `navigate_to_artwork`, `set_experience_mode`. Add context, region, and rendering tools only after the core loop is proven.
-2. **`render_interpretation` may duplicate spoken output and inflate tool arguments.** Keep it optional until Voice behavior is observed. A transcript/provenance layer could instead render concise structured summaries.
+1. **Tool count must follow distinct intent ownership, not feature count.** The
+   final surface consolidates five granular personalization setters into one
+   atomic `configure_presentation` tool and enforces 500/150-character
+   description budgets across seventeen tools.
+2. **Published output must be more trustworthy than copied chat prose.** The
+   final companion accepts site-owned statement IDs for Observed/Known material,
+   bounded text only for Interpreted/Imagined material, and clears itself when
+   artwork, focus, language, or speaking-style context becomes stale.
 3. **Direct image perception is not guaranteed by the Site Tool contract.** The validation must distinguish visual perception from context retrieval; the data model supports both without concealing the difference.
 4. **Vercel is replaceable.** The architecture remains static-host portable; do not spend time on provider-specific infrastructure.
 5. **The rights/content workload is real.** Six artworks is the upper bound, not a target that overrides quality; four excellent records beat six incomplete ones.

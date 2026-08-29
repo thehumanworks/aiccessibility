@@ -8,7 +8,7 @@
 - **Git:** Initialize a local repository with the implementation; commit after the validated probe and after the completed MVP. Do not publish a remote repository without an explicit in-scope publication decision or established project remote.
 - **Verification:** Run continuously without look-at-it pauses, except the irreducible live ChatGPT Voice checkpoint that requires an actual voice task.
 - **Check-in cadence:** Speed-run, with durable notes after every checklist item.
-- **Scope lock:** Do not expand beyond `scope.md`; stop feature expansion if the Voice gate lacks proof after the planned half-day.
+- **Scope lock:** Preserve the product thesis and explicit Voice boundary. Following the participant’s 2026-08-29 instruction to build the optimal showcase product rather than stop at a proof of concept, continue items 8–11 while keeping unverified Voice claims out of the product and submission evidence.
 - **Wow moment:** The visitor says “Now make it a poem about distance,” the page transforms as ChatGPT speaks, then “Take me somewhere warmer” drives a real WebMCP navigation to another artwork.
 
 ## Checklist
@@ -37,18 +37,18 @@
   Acceptance: Tools register at the top-level document, manual and tool actions share one controller, read-only calls do not mutate revision, invalid calls are recoverable, and navigation does not remove tools.
   Verify: `npm test -- --run tests/tool-contracts.test.ts && npm run build`; inspect tools and invocation history in Chrome DevTools WebMCP panel.
 
-- [ ] **5. Deploy and validate text-driven Site Tools end to end**
+- [x] **5. Deploy and validate text-driven Site Tools end to end**
   Spec ref: `spec.md > Deployment`; `spec.md > Risks And Verification > Risk 3`
   What to build: Create a public static deployment, add security/metadata configuration, and validate tool discovery/mutation from ChatGPT’s built-in browser or WebMCP-enabled Chrome before involving Voice.
   Acceptance: Clean/incognito URL loads; all four tools are discoverable; a text request navigates and changes mode; page and returned state agree; deployment requires no credentials.
   Verify: Record URL, timestamp, client/model, tool call inputs/outputs, and receiver-side screenshots/logs in `docs/voice-validation.md` under “text/site-tools baseline.”
-  Current status: **Partially complete.** Production deployment and clean-browser rendering are verified. Real ChatGPT/Chrome Site Tool discovery remains unchecked because this Codex task currently has no connected browser session.
+  Completion note: On 2026-08-29 at approximately 17:39 UTC, live tools were discovered on production in the Codex in-app browser. `set_experience_mode({ mode: "curatorial" })` returned `ok` at revision 23 with a matching visible mode; `navigate_to_artwork({ artworkId: "hokusai-great-wave" })` returned `ok` at revision 24 with matching URL/status/readback. A later revision-27 navigation settled for 700 ms to exactly one Great Wave figure. The tab was restored to Gifford in Poetic mode. Full evidence is in `docs/voice-validation.md`.
 
 - [ ] **6. Pass the ChatGPT Voice go/no-go gate**
   Spec ref: `spec.md > Risks And Verification > Risk 1`; `scope.md > Critical Validation Spike`
   What to build: In one new ChatGPT Voice task, open the deployed probe and test spoken discovery, invocation, visible mutation, continued spoken awareness, and a follow-up tool call.
   Acceptance: The six-step critical loop succeeds in three consecutive clean sessions or the exact client limitation is recorded. No page-owned TTS is substituted while claiming success.
-  Verify: Receiver-side screen recording plus a completed result table in `docs/voice-validation.md`. **Hard gate: do not start item 7 without passing evidence or a participant-approved architecture change.**
+  Verify: Receiver-side screen recording plus a completed result table in `docs/voice-validation.md`. **This item remains incomplete: no genuinely voice-started run has occurred. The participant explicitly authorized continuing items 8–11 without treating text-driven evidence as Voice evidence.**
 
 - [x] **7. Expand the curated collection and discovery behavior**
   Spec ref: `spec.md > Architecture > 3. Collection repository`; `prd.md > Epic 2`
@@ -57,29 +57,33 @@
   Verify: `npm test -- --run tests/collection.test.ts tests/tool-contracts.test.ts` and three discovery prompt checks.
   Completion note: Implemented out of sequence by explicit participant request during the Opus visual redesign. Live agent prompt checks remain part of items 5–6; collection integrity and six-item tool responses are verified locally.
 
-- [ ] **8. Implement experience modes and provenance rendering**
+- [x] **8. Build the provenance-bound companion canvas and adaptive presentation**
   Spec ref: `spec.md > Architecture > 6. Interpretation layer`; `prd.md > Epic 3`; `prd.md > Epic 5`
-  What to build: Literal, spatial, poetic, story, and curatorial mode themes; provenance legend; plain-text `render_interpretation`/`clear_interpretation` tools if Voice observations support them; source binding for Known segments.
-  Acceptance: Mode switches preserve artwork/focus; facts and invention cannot be silently mislabeled; visual transformations remain readable and reduced-motion safe.
-  Verify: Unit/contract/component tests for every mode and provenance category; axe scan per mode; live prompt “What are you inventing, and what do we actually know?”
+  What to build: A persistent companion canvas for provenance-bound Observed, Known, Interpreted, and Imagined segments; source binding for Known content; safe plain-text publish/clear tools; one atomic adaptive-presentation action for mode/readability preferences; and a concise activity receipt with Undo for human and agent changes.
+  Acceptance: The agent’s contribution remains visible and revisitable; Known claims resolve to site-owned sources; arbitrary markup is rejected; atomic changes return a before/after diff; Undo is bounded and reversible; mode switches preserve artwork/focus; visual transformations remain readable and reduced-motion safe.
+  Verify: Unit/contract/component tests for every provenance category, atomic change, receipt, and Undo path; axe scan per mode; live prompt “What are you inventing, and what do we actually know?”
+  Completion note: Implemented a responsive source-bound companion canvas, optional-mode publishing, atomic multi-setting presentation, localized bounded activity receipt, dismiss/Undo, response context binding to artwork/focus/language/style, stale-revision rejection, safe literal text, fixed source links, compact native companion dialog, and desktop side-by-side composition. Full unit/E2E and hands-on desktop/mobile checks pass.
 
-- [ ] **9. Implement region-focused exploration**
+- [x] **9. Finish human-readable, human-ratified region exploration**
   Spec ref: `spec.md > Site Tool Contracts > focus_region`; `prd.md > Epic 4`
-  What to build: Semantic region list, normalized overlay/focus behavior, `focus_region`, `clear_region_focus`, grounded result context, and accessible announcements.
-  Acceptance: Valid focus changes the page and returned state; invalid/ambiguous requests do not fake success; whole-artwork restoration is immediate; keyboard users retain access.
-  Verify: Region bound tests, invalid-id tests, reduced-motion check, screen-reader/keyboard pass, and live region prompts.
+  What to build: An always-available semantic detail navigator; normalized overlay/focus behavior; authored, agent-grounded, model-suggested, and human-confirmed provenance; accept/reject/show-whole controls for proposed regions; grounded result context; and accessible announcements.
+  Acceptance: Every region can be understood and operated without coordinates or vision; valid focus changes the page and returned state; suggested regions never masquerade as museum-authored fact; invalid/ambiguous requests do not fake success; whole-artwork restoration is immediate; keyboard users retain access.
+  Verify: Region-bound and provenance tests, invalid-id and proposal-decision tests, reduced-motion check, screen-reader/keyboard pass, and live detail-navigation prompts.
+  Completion note: Authored details are manually discoverable before agent action. Agent/model proposals remain explicitly unverified, expose human-only Confirm/Not this controls with focus recovery, and may be dismissed without stale focus. Narrow layouts use a bounded horizontally scrollable detail rail; forced colours retain a visible region boundary.
 
-- [ ] **10. Harden the complete tool surface and failure behavior**
+- [x] **10. Harden the complete tool surface and failure behavior**
   Spec ref: `spec.md > Testing Strategy`; `prd.md > Edge Cases`
-  What to build: Cancellation, stale-action protection, concise errors, image-load failure, no-result recovery, unsupported-client guidance, tool-description evals, and full current-state verification.
-  Acceptance: All PRD edge cases behave deliberately; tool selection is stable; canceled calls do not apply late; errors expose valid recovery options without internal details.
-  Verify: Full `npm run check`; Chrome WebMCP DevTools inspection; deterministic and probabilistic prompt cases; three clean headline runs.
+  What to build: Cancellation, `expectedRevision` stale-state rejection, newest-request-wins region analysis, concise errors, image-load failure, no-result recovery, unsupported-client guidance, slim tool descriptions, tool-selection/argument/ordering intent evals, and full current-state verification.
+  Acceptance: All PRD edge cases behave deliberately; tool selection and ordering are stable; stale or canceled calls cannot apply late; races resolve deterministically; errors expose valid recovery options without internal details.
+  Verify: Full `npm run check`; Chrome WebMCP DevTools inspection; deterministic prompt corpus plus probabilistic cases; explicit stale-revision/race tests; three clean headline runs.
+  Completion note: Consolidated to 17 distinct tools, removed five overlapping personalization setters, applied optional revision guards across mutations, made region analysis newest-request-wins and non-corrupting to Undo, enforced 500/150-character description budgets, and added a 49-case EN/ES/FR corpus. Three independent blind routing reviews challenged all cases; after fixes, every flagged case rerouted cleanly. Three genuinely voice-started headline runs remain item 6, not evidence for this completion.
 
-- [ ] **11. Polish, document, and freeze the MVP deployment**
+- [ ] **11. Polish, document, and freeze the showcase deployment**
   Spec ref: `spec.md > Accessibility Implementation`; `spec.md > Demo And Submission Flow`
-  What to build: Final artwork-first visual polish, responsive and accessibility passes, performance/image optimization, README architecture/tool/testing sections, demo script, screenshots, stable production deployment, and final rights audit.
-  Acceptance: Live build is polished and repeatable; first interaction lands within 15 seconds; README links directly to WebMCP code and evidence; all assets are licensed; no unsupported claim remains.
-  Verify: `npm run check`; Lighthouse/accessibility review; clean-browser deployment check; execute `docs/demo-script.md` three times.
+  What to build: Final artwork-first visual polish; first-run judge guidance with useful example prompts and honest Site Tools availability; responsive/accessibility passes; performance/image optimization; README architecture/tool/testing sections; demo script; screenshots; stable production deployment; and final rights audit.
+  Acceptance: A first-time visitor understands the shared human-agent interaction within 15 seconds; the live build is polished and repeatable; README links directly to WebMCP code and evidence; all assets are licensed; no unsupported Voice claim remains.
+  Verify: `npm run check`; Lighthouse/accessibility review; keyboard/screen-reader and clean-browser deployment checks; verify first-run guidance with Site Tools available and unavailable; execute `docs/demo-script.md` three times.
+  Current status: Local showcase polish, README, metadata, security headers, security/audit review, first-run guide, demo script, React review, visual desktop/mobile inspection, keyboard/axe/reduced-motion paths, 115 tests, production build, and 31 Chromium journeys pass. This item remains open until the new source is committed/published, production headers and optional model downloads are read back live, and the demo script is completed three times in genuinely voice-started sessions.
 
 - [ ] **12. Prepare Devpost handoff**
   Spec ref: `spec.md > Demo And Submission Flow`; `prd.md > Submission Proof Points`

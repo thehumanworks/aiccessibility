@@ -43,6 +43,7 @@ export type FontSize = 'small' | 'medium' | 'large' | 'extra-large';
 export type ContrastLevel = 'soft' | 'standard' | 'high';
 export type ColorTheme = 'light' | 'dark';
 export type GalleryLanguage = 'en' | 'es' | 'fr';
+export type ChangeOrigin = 'human' | 'agent';
 
 export interface PersonalizationPreferences {
   fontFamily: FontFamily;
@@ -55,15 +56,22 @@ export interface PersonalizationPreferences {
 export interface InterpretationSegment {
   provenance: ProvenanceKind;
   text: string;
+  /** Present when the text was resolved from the gallery's authored record. */
+  statementId?: string;
+  /** Present for sourced Known or attributed Interpreted statements. */
+  sourceIds?: readonly string[];
 }
 
 export interface RenderedInterpretation {
+  artworkId: ArtworkId;
+  focusedRegionId: RegionId | null;
+  language: GalleryLanguage;
   mode: ExperienceMode;
   title?: string;
   segments: readonly InterpretationSegment[];
 }
 
-export interface GalleryState {
+export interface GallerySnapshot {
   artworkId: ArtworkId;
   mode: ExperienceMode;
   personalization: PersonalizationPreferences;
@@ -72,7 +80,43 @@ export interface GalleryState {
   agentGroundedRegions: Partial<Record<ArtworkId, readonly ArtworkRegion[]>>;
   acceptedModelRegions: Partial<Record<ArtworkId, readonly ArtworkRegion[]>>;
   regionAnalysis: Record<ArtworkId, RegionAnalysisState>;
+}
+
+export type GalleryActivityAction =
+  | 'navigate'
+  | 'set-mode'
+  | 'configure-presentation'
+  | 'set-font-family'
+  | 'set-font-size'
+  | 'set-contrast'
+  | 'set-theme'
+  | 'set-language'
+  | 'focus-region'
+  | 'focus-agent-region'
+  | 'confirm-region'
+  | 'dismiss-region'
+  | 'clear-focus'
+  | 'analyze-regions'
+  | 'publish-gallery-response'
+  | 'clear-gallery-response'
+  | 'undo';
+
+export interface SessionActivityEntry {
+  sequence: number;
+  origin: ChangeOrigin;
+  action: GalleryActivityAction;
+  fromRevision: number;
+  toRevision: number;
+  /** Deliberately excludes raw prompts and generated response text. */
+  summary: string;
+}
+
+export interface GalleryState extends GallerySnapshot {
   revision: number;
+  activity: readonly SessionActivityEntry[];
+  activitySequence: number;
+  /** One-step, in-memory recovery state. Never included in tool output. */
+  undoSnapshot: GallerySnapshot | null;
 }
 
 export interface RightsRecord {
@@ -133,6 +177,7 @@ export interface ArtworkRegion {
   queryAliases?: readonly string[];
   confidence?: number;
   provenance?: 'authored' | 'agent-grounded' | 'model-detected';
+  verification?: 'authored' | 'unverified' | 'human-confirmed';
   model?: RegionModelMetadata;
   mask?: CompactRegionMask;
 }

@@ -1,4 +1,5 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -14,7 +15,32 @@ import { experienceModes } from '../src/gallery/reducer';
 
 afterEach(() => {
   window.history.replaceState(null, '', '/');
+  delete (document as Document & { modelContext?: unknown }).modelContext;
 });
+
+async function renderWithToolHarness() {
+  const tools = new Map<string, WebMCP.ModelContextTool>();
+  Object.defineProperty(document, 'modelContext', {
+    configurable: true,
+    value: {
+      registerTool(
+        tool: WebMCP.ModelContextTool,
+        options?: { signal?: AbortSignal },
+      ) {
+        tools.set(tool.name, tool);
+        options?.signal?.addEventListener(
+          'abort',
+          () => tools.delete(tool.name),
+          { once: true },
+        );
+        return Promise.resolve();
+      },
+    },
+  });
+  const rendered = render(<App />);
+  await waitFor(() => expect(tools.size).toBe(17));
+  return { ...rendered, tools };
+}
 
 function openSettings() {
   fireEvent.click(screen.getByRole('button', { name: 'Gallery settings' }));
@@ -63,6 +89,39 @@ describe('accessible gallery', () => {
     const { container } = render(<App />);
     openSettings();
 
+    expect((await axe(container)).violations).toEqual([]);
+  });
+
+  it('has no detectable axe violations with the shared companion open', async () => {
+    const { container, tools } = await renderWithToolHarness();
+    const publish = tools.get('publish_gallery_response');
+    expect(publish).toBeDefined();
+
+    await act(async () => {
+      await publish!.execute(
+        {
+          mode: 'literal',
+          title: 'A shared reading',
+          segments: [
+            { provenance: 'observed', statementId: 'pissarro-observed-1' },
+            { provenance: 'known', statementId: 'pissarro-known-1' },
+            { provenance: 'interpreted', text: 'The avenue feels restless.' },
+            { provenance: 'imagined', text: 'Imagine the traffic as a tide.' },
+          ],
+        },
+        { signal: new AbortController().signal },
+      );
+    });
+
+    const companion = screen.getByRole('complementary', {
+      name: 'A shared reading',
+    });
+    await waitFor(() => expect(companion).toBeVisible());
+    expect(
+      within(companion).getByRole('button', {
+        name: 'Clear the shared response',
+      }),
+    ).toBeVisible();
     expect((await axe(container)).violations).toEqual([]);
   });
 

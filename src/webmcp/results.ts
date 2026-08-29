@@ -14,6 +14,7 @@ import type { GalleryState } from '../gallery/types';
 export type GalleryToolAction =
   | 'get_gallery_state'
   | 'list_artworks'
+  | 'get_artwork_context'
   | 'navigate_to_artwork'
   | 'set_experience_mode'
   | 'set_font_family'
@@ -21,6 +22,11 @@ export type GalleryToolAction =
   | 'set_contrast'
   | 'set_color_theme'
   | 'set_content_language'
+  | 'configure_presentation'
+  | 'publish_gallery_response'
+  | 'clear_gallery_response'
+  | 'get_session_activity'
+  | 'undo_last_change'
   | 'list_regions'
   | 'analyze_artwork_regions'
   | 'focus_artwork_area'
@@ -63,6 +69,7 @@ export function buildGalleryState(state: GalleryState) {
           id: focusedRegion.id,
           label: focusedRegion.label,
           provenance: focusedRegion.provenance ?? 'authored',
+          verification: focusedRegion.verification ?? 'authored',
         }
       : null,
     availableRegionCount: visibleRegions.length,
@@ -74,6 +81,18 @@ export function buildGalleryState(state: GalleryState) {
       ...(regionAnalysis.error ? { error: regionAnalysis.error } : {}),
     },
     hasInterpretation: state.interpretation !== null,
+    interpretation: state.interpretation
+      ? {
+          ...state.interpretation,
+          segments: state.interpretation.segments.map((segment) => ({
+            ...segment,
+            ...(segment.sourceIds
+              ? { sourceIds: [...segment.sourceIds] }
+              : {}),
+          })),
+        }
+      : null,
+    canUndo: state.undoSnapshot !== null,
     collectionSize: listArtworks().length,
     revision: state.revision,
   };

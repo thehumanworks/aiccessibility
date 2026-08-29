@@ -142,3 +142,32 @@
 - Visual review passed for desktop rest, selector focus/selection, carousel rest/mid-transition, mobile rest, and full-viewport mobile settings.
 - Remaining tradeoffs: JS bundle 356 kB raw / 113 kB gzip; peeks load two additional full-size images; `mask-composite` fallback may show harder edges on unsupported engines; vertical headroom remains tight at 1280×720; two figures coexist for roughly 520 ms mid-transition.
 - Published the verified custom selector/carousel refinement to Vercel production: deployment `dpl_2oxHtpsLPZQBfFVjjmCVZUUFmVEK`, immutable URL `https://aiccessibility-fwliracd1-the-human-works.vercel.app`, alias `https://aiccessibility.vercel.app`, status `READY`, live HTTP 200.
+
+## 2026-08-29 — Build item 5 complete; live text-driven WebMCP gate
+
+- Validated production at `https://aiccessibility.vercel.app` in the Codex in-app browser at approximately 17:39 UTC; live page tools were discovered.
+- `set_experience_mode({ mode: "curatorial" })` returned `ok` at revision 23, and the visible speaking style changed to Curatorial.
+- `navigate_to_artwork({ artworkId: "hokusai-great-wave" })` returned `ok` at revision 24; URL state, visible status, and tool readback agreed on Hokusai’s *Under the Wave off Kanagawa (The Great Wave)*.
+- A second navigation at revision 27 was allowed to settle for 700 ms. The DOM then contained exactly one figure titled *Under the Wave off Kanagawa (The Great Wave)*, ruling out a transient carousel duplicate in the settled state.
+- Restored the tab to `gifford-kauterskill-clove` in Poetic mode after validation.
+- Marked checklist item 5 complete. This is receiver-side text-driven WebMCP evidence, not a genuinely voice-started run; checklist item 6 remains incomplete.
+
+## 2026-08-29 — Participant expands the finish line to the optimal showcase product
+
+- Active shaping moment: the participant rejected stopping at the guided tool’s proof-of-concept milestone: “I don't want a proof of concept - you are codex, build the optimal product you aspire to showcase.”
+- This explicitly overrides the earlier sequencing stop after the text gate and authorizes autonomous continuation through checklist items 8–11 while preserving the original product thesis and full ChatGPT Voice boundary.
+- The build must not convert the text-driven result into Voice evidence. Three genuinely voice-started runs, or a later explicit architecture decision based on a demonstrated client limitation, are still required to complete item 6.
+- Refined the remaining full-product priorities: provenance-bound companion canvas; atomic adaptive presentation with activity receipt and Undo; human-readable, human-ratified region navigation; stale-revision and race hardening; intent/tool-selection evals; and first-run judge guidance.
+
+## 2026-08-29 — Showcase product build: companion, trust, control, and evals
+
+- Completed checklist item 8 with a provenance-bound shared companion canvas. `get_artwork_context` exposes canonical statement/source IDs; `publish_gallery_response` permits Observed/Known only through those IDs while Interpreted/Imagined remain bounded plain text. The response is bound to artwork, focus, language, and speaking style so stale content clears rather than drifting out of context.
+- Added `configure_presentation` for one-revision adaptive changes, a twenty-entry redacted activity receipt, dismissible localized UI, operational `expectedRevision` guards, and one-step non-recursive Undo. Raw prompts and published response text never enter the receipt.
+- Completed checklist item 9 with always-available authored details, visible authored/agent/model/human-confirmed provenance, human-only confirmation/dismissal, preserved keyboard focus, whole-artwork recovery, forced-colour focus boundaries, and a narrow one-row scrollable detail rail.
+- Completed checklist item 10 with newest-request-wins analysis, cancellation on navigation/Undo, transient progress outside revision/Undo history, non-undoable analysis completion, concise error recovery, and a consolidated 17-tool surface. Five granular personalization tools were removed from WebMCP while manual controls/controller methods remain.
+- Added `evals/webmcp-intent-corpus.json`: 49 EN/ES/FR cases across direct, ambiguous, negative, stale-state, provenance, and ten journey scenarios. The static validator passes 5/5. Three independent model reviewers blind-routed all cases, surfaced seventeen hard/latent ambiguities, then rerouted every flagged case cleanly after contract/corpus refinement (5/5, 8/8, 5/5 follow-up slices). This is design evidence, not a hosted-agent success claim.
+- Added a compact first-run ChatGPT guide, responsive desktop/native-modal companion, source links, skip target, mobile focus return, copyable companion text, localized activity actions, canonical-English disclosure, dismissible receipt, and honest Site Tools readiness state. Hands-on in-app browser inspection passed desktop and 390 × 844 mobile layouts with zero console errors.
+- Added `docs/demo-script.md`, current metadata, README tool/story architecture, `vercel.json` security headers, and `docs/security-review.md`.
+- Final local verification: `npm run check` passed 115 Vitest tests, production build (455 modules; main JS 440.09 kB / 137.33 kB gzip; CSS 28.61 kB / 6.57 kB gzip), and 31 Chromium journeys. React best-practices and independent accessibility audits were applied; discovered modal, context-binding, race, focus, localisation, overlay, and forced-colour defects were fixed before the final gate.
+- `npm audit --audit-level=high` reports two high-severity findings covering four libvips CVEs through `@huggingface/transformers@3.8.1 -> sharp@0.34.5`, with no fix available. The static browser build uses Transformers’ web export and includes no Sharp native addon/libvips binary; the exact boundary and required recheck are documented rather than called clean.
+- No commit, push, or deployment was performed in this build turn. Checklist item 11 remains open for publication/readback and checklist item 6 remains open for three genuinely voice-started host runs.

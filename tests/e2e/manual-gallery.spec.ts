@@ -310,6 +310,10 @@ test('the wall-label styles answer arrows, Home, End, and the 1-5 number keys', 
   // the style group in the keyboard order.
   await page.locator('#artwork-stage').focus();
   await page.keyboard.press('Tab');
+  await expect(
+    page.getByRole('button', { name: 'Explore details' }),
+  ).toBeFocused();
+  await page.keyboard.press('Tab');
   const progress = page.getByRole('group', { name: 'Artwork navigation' });
   await expect(progress.getByRole('button').first()).toBeFocused();
   for (let index = 1; index <= 6; index += 1) {
@@ -631,4 +635,43 @@ test('a failed image keeps the record, the frame, and the accessible state', asy
   ).toBeVisible();
   await expect(page.locator('.artwork-plate')).toBeVisible();
   await expect(page.getByRole('status')).toContainText('Artwork 1 of 6');
+});
+
+test('the first encounter offers ChatGPT guidance and keyboard-first authored details', async ({
+  page,
+}) => {
+  await page.goto('/');
+
+  await expect(page.locator('.companion-panel')).toHaveCount(0);
+  const guide = page.locator('.experience-guide');
+  await expect(guide).toContainText('Ask ChatGPT');
+  await guide.locator('summary').focus();
+  await page.keyboard.press('Enter');
+  await expect(guide).toContainText('Describe this spatially.');
+  await expect(guide.locator('textarea, input')).toHaveCount(0);
+
+  const explore = page.getByRole('button', { name: 'Explore details' });
+  await expect(explore).toBeVisible();
+  await expect(explore).toHaveAttribute('aria-expanded', 'false');
+  await explore.focus();
+  await page.keyboard.press('Enter');
+  await expect(
+    page.getByRole('button', { name: 'Hide details' }),
+  ).toHaveAttribute('aria-expanded', 'true');
+
+  const detail = page.getByRole('button', { name: 'The near winter tree' });
+  await detail.focus();
+  await page.keyboard.press('Enter');
+  await expect(detail).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('.region-focus-marker')).toHaveAttribute(
+    'data-provenance',
+    'authored',
+  );
+  await expect(page.getByText('Gallery-authored')).toBeVisible();
+
+  const clear = page.getByRole('button', { name: 'Show whole artwork' });
+  await clear.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('.region-focus-marker')).toHaveCount(0);
+  await expect(page.getByText('Gallery-authored')).toHaveCount(0);
 });
